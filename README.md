@@ -42,6 +42,16 @@ The CLI now has a shared API helper layer plus command-family dispatch wired up 
 For a new user, the intended first steps are:
 
 1. `monk auth register --tenant <tenant> --username <user> --email <email> --password <password>`
-2. `monk auth login --tenant <tenant> --username <user> --password <password>`
+2. `monk auth login --tenant <tenant> --username <user> --password <password>` if you need a fresh session later
 3. `monk public llms` or `monk docs root`
 4. `monk health`
+
+`monk auth register` now follows the API contract change by registering first and
+then immediately completing `/auth/login` so the CLI still lands with a saved JWT.
+
+Machine clients should use:
+
+1. `monk auth provision --tenant <tenant> --username <user> --public-key @machine.pub`
+2. Sign the returned nonce with the matching private key
+3. `monk auth verify --tenant <tenant> --challenge-id <id> --signature @signature.txt`
+4. `monk keys list`

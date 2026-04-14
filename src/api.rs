@@ -71,17 +71,87 @@ pub struct LoginData {
 pub struct RegisterData {
     pub tenant_id: String,
     pub tenant: String,
-    #[serde(default)]
-    pub database: Option<String>,
     pub username: String,
-    pub token: String,
-    pub expires_in: u64,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RefreshData {
     pub token: String,
     pub expires_in: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProvisionRequest {
+    pub tenant: Option<String>,
+    pub username: Option<String>,
+    pub public_key: Option<String>,
+    pub algorithm: Option<String>,
+    pub key_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProvisionUserData {
+    pub id: String,
+    pub username: String,
+    pub access: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProvisionKeyData {
+    pub id: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    pub algorithm: String,
+    pub fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProvisionChallengeData {
+    pub challenge_id: String,
+    pub nonce: String,
+    pub expires_in: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProvisionData {
+    pub tenant: String,
+    pub tenant_id: String,
+    pub user: ProvisionUserData,
+    pub key: ProvisionKeyData,
+    pub challenge: ProvisionChallengeData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChallengeRequest {
+    pub tenant: Option<String>,
+    pub key_id: Option<String>,
+    pub fingerprint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChallengeData {
+    pub challenge_id: String,
+    pub nonce: String,
+    pub issued_at: String,
+    pub expires_in: u64,
+    pub algorithm: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VerifyRequest {
+    pub tenant: Option<String>,
+    pub challenge_id: Option<String>,
+    pub signature: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VerifyData {
+    pub token: String,
+    pub expires_in: u64,
+    pub tenant: String,
+    pub tenant_id: String,
+    pub key_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -482,6 +552,27 @@ impl ApiClient {
         request: &RefreshRequest,
     ) -> Result<ApiEnvelope<RefreshData>, MonkError> {
         self.post_json("/auth/refresh", request).await
+    }
+
+    pub async fn auth_provision(
+        &self,
+        request: &ProvisionRequest,
+    ) -> Result<ApiEnvelope<ProvisionData>, MonkError> {
+        self.post_json_without_auth("/auth/provision", request).await
+    }
+
+    pub async fn auth_challenge(
+        &self,
+        request: &ChallengeRequest,
+    ) -> Result<ApiEnvelope<ChallengeData>, MonkError> {
+        self.post_json_without_auth("/auth/challenge", request).await
+    }
+
+    pub async fn auth_verify(
+        &self,
+        request: &VerifyRequest,
+    ) -> Result<ApiEnvelope<VerifyData>, MonkError> {
+        self.post_json_without_auth("/auth/verify", request).await
     }
 
     pub async fn auth_dissolve(

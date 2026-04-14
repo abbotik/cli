@@ -9,15 +9,16 @@ use serde_json::{json, Map, Value};
 
 use crate::{
     api::{
-        ApiClient, DissolveConfirmRequest, DissolveRequest, LoginRequest, RefreshRequest,
-        RegisterRequest,
+        ApiClient, ChallengeRequest, DissolveConfirmRequest, DissolveRequest, LoginRequest,
+        ProvisionRequest, RefreshRequest, RegisterRequest, VerifyRequest,
     },
     cli::{
         AclsCommand, AggregateCommand, AggregateOptions, AppCommand, AuthCommand, BulkCommand,
         BulkOptions, Cli, Command, CronCommand, DataCommand, DescribeCommand, DocsCommand,
-        FindCommand, FindOptions, FsCommand, FsOptions, PublicCommand, StatCommand, TrackedCommand,
-        TrashedCommand, UserCommand, UserCreateCommand, UserKeysCommand, UserKeysCreateCommand,
-        UserKeysSubcommand, UserListCommand, UserPasswordCommand, UserSubcommand,
+        FindCommand, FindOptions, FsCommand, FsOptions, KeysCommand, KeysCreateCommand,
+        KeysRotateCommand, KeysSubcommand, PublicCommand, StatCommand, TrackedCommand,
+        TrashedCommand, UserCommand, UserCreateCommand, UserListCommand, UserPasswordCommand,
+        UserSubcommand,
     },
     config::MonkConfig,
     data,
@@ -56,6 +57,7 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Tracked(command) => tracked(command, &client).await?,
         Command::Trashed(command) => trashed(command, &client).await?,
         Command::User(command) => user(command, &client).await?,
+        Command::Keys(command) => keys(command, &client).await?,
         Command::Cron(command) => cron(command, &client).await?,
         Command::Fs(command) => fs(command, &client).await?,
         Command::App(command) => app(command, &client).await?,
@@ -103,19 +105,32 @@ async fn auth(
         }
         crate::cli::AuthSubcommand::Register(args) => {
             let password = read_secret_source_option(args.password.as_deref())?;
-            let response = client
+            let register_response = client
                 .auth_register(&RegisterRequest {
                     tenant: args.tenant,
                     username: args.username,
                     email: args.email,
-                    password,
+                    password: password.clone(),
                 })
                 .await?;
-            if let Some(token) = response.data.as_ref().map(|data| data.token.clone()) {
+            let login_response = client
+                .auth_login(&LoginRequest {
+                    tenant: register_response.data.as_ref().map(|data| data.tenant.clone()),
+                    tenant_id: None,
+                    username: register_response.data.as_ref().map(|data| data.username.clone()),
+                    password,
+                    format: None,
+                })
+                .await?;
+            if let Some(token) = login_response.data.as_ref().map(|data| data.token.clone()) {
                 config.set_token(token);
                 save_config(config, save_path)?;
             }
-            print_json(&response)?;
+            print_json(&json!({
+                "success": register_response.success && login_response.success,
+                "register": register_response,
+                "login": login_response,
+            }))?;
         }
         crate::cli::AuthSubcommand::Refresh(args) => {
             let token = args
@@ -125,6 +140,44 @@ async fn auth(
             let response = client.auth_refresh(&RefreshRequest { token }).await?;
             if let Some(next_token) = response.data.as_ref().map(|data| data.token.clone()) {
                 config.set_token(next_token);
+                save_config(config, save_path)?;
+            }
+            print_json(&response)?;
+        }
+        crate::cli::AuthSubcommand::Provision(args) => {
+            let public_key = read_secret_source_option(args.public_key.as_deref())?;
+            let response = client
+                .auth_provision(&ProvisionRequest {
+                    tenant: args.tenant,
+                    username: args.username,
+                    public_key,
+                    algorithm: args.algorithm,
+                    key_name: args.key_name,
+                })
+                .await?;
+            print_json(&response)?;
+        }
+        crate::cli::AuthSubcommand::Challenge(args) => {
+            let response = client
+                .auth_challenge(&ChallengeRequest {
+                    tenant: args.tenant,
+                    key_id: args.key_id,
+                    fingerprint: args.fingerprint,
+                })
+                .await?;
+            print_json(&response)?;
+        }
+        crate::cli::AuthSubcommand::Verify(args) => {
+            let signature = read_secret_source_option(args.signature.as_deref())?;
+            let response = client
+                .auth_verify(&VerifyRequest {
+                    tenant: args.tenant,
+                    challenge_id: args.challenge_id,
+                    signature,
+                })
+                .await?;
+            if let Some(token) = response.data.as_ref().map(|data| data.token.clone()) {
+                config.set_token(token);
                 save_config(config, save_path)?;
             }
             print_json(&response)?;
@@ -624,7 +677,6 @@ async fn user(command: UserCommand, client: &ApiClient) -> anyhow::Result<()> {
                     .await?,
             )?;
         }
-        UserSubcommand::Keys(command) => user_keys(command, client).await?,
         UserSubcommand::Sudo(args) => print_json(&client.auth_sudo(args.reason.as_deref()).await?)?,
         UserSubcommand::Fake(args) => {
             let body = json!({
@@ -637,6 +689,26 @@ async fn user(command: UserCommand, client: &ApiClient) -> anyhow::Result<()> {
                     .await?,
             )?
         }
+    }
+    Ok(())
+}
+
+async fn keys(command: KeysCommand, client: &ApiClient) -> anyhow::Result<()> {
+    match command.command {
+        KeysSubcommand::List => print_json(&client.get_json::<Value>("/api/keys").await?)?,
+        KeysSubcommand::Create(args) => {
+            let body = keys_create_body(args)?;
+            print_json(&client.post_json::<_, Value>("/api/keys", &body).await?)?;
+        }
+        KeysSubcommand::Rotate(args) => {
+            let body = keys_rotate_body(args)?;
+            print_json(&client.post_json::<_, Value>("/api/keys/rotate", &body).await?)?;
+        }
+        KeysSubcommand::Delete(arg) => print_json(
+            &client
+                .delete_json::<Value>(&format!("/api/keys/{}", arg.key_id))
+                .await?,
+        )?,
     }
     Ok(())
 }
@@ -1105,57 +1177,45 @@ fn user_password_body(args: UserPasswordCommand) -> anyhow::Result<PasswordBody>
     })
 }
 
-async fn user_keys(command: UserKeysCommand, client: &ApiClient) -> anyhow::Result<()> {
-    match command.command {
-        UserKeysSubcommand::List(arg) => print_json(
-            &client
-                .get_json::<Value>(&format!("/api/user/{}/keys", arg.id))
-                .await?,
-        )?,
-        UserKeysSubcommand::Create(args) => {
-            let body = user_keys_create_body(args)?;
-            print_json(
-                &client
-                    .post_json::<_, Value>(&format!("/api/user/{}/keys", body.id), &body.body)
-                    .await?,
-            )?;
-        }
-        UserKeysSubcommand::Delete(arg) => {
-            print_json(
-                &client
-                    .delete_json::<Value>(&format!("/api/user/{}/keys/{}", arg.id, arg.key_id))
-                    .await?,
-            )?;
-        }
-    }
-    Ok(())
-}
-
-struct UserKeysCreateBody {
-    id: String,
-    body: Value,
-}
-
-fn user_keys_create_body(args: UserKeysCreateCommand) -> anyhow::Result<UserKeysCreateBody> {
+fn keys_create_body(args: KeysCreateCommand) -> anyhow::Result<Value> {
     let mut object = Map::new();
+    if let Some(user_id) = args.user_id {
+        object.insert("user_id".to_string(), Value::String(user_id));
+    }
+    if let Some(public_key) = read_secret_source_option(args.public_key.as_deref())? {
+        object.insert("public_key".to_string(), Value::String(public_key));
+    }
     if let Some(name) = args.name {
         object.insert("name".to_string(), Value::String(name));
     }
-    if let Some(environment) = args.environment {
-        object.insert("environment".to_string(), Value::String(environment));
-    }
-    if let Some(permissions) = args.permissions {
-        object.insert(
-            "permissions".to_string(),
-            serde_json::from_str(&permissions)?,
-        );
+    if let Some(algorithm) = args.algorithm {
+        object.insert("algorithm".to_string(), Value::String(algorithm));
     }
     if let Some(expires_at) = args.expires_at {
         object.insert("expires_at".to_string(), Value::String(expires_at));
     }
+    Ok(Value::Object(object))
+}
 
-    Ok(UserKeysCreateBody {
-        id: args.id,
-        body: Value::Object(object),
-    })
+fn keys_rotate_body(args: KeysRotateCommand) -> anyhow::Result<Value> {
+    let mut object = Map::new();
+    if let Some(key_id) = args.key_id {
+        object.insert("key_id".to_string(), Value::String(key_id));
+    }
+    if let Some(new_public_key) = read_secret_source_option(args.new_public_key.as_deref())? {
+        object.insert("new_public_key".to_string(), Value::String(new_public_key));
+    }
+    if let Some(algorithm) = args.algorithm {
+        object.insert("algorithm".to_string(), Value::String(algorithm));
+    }
+    if let Some(new_name) = args.new_name {
+        object.insert("new_name".to_string(), Value::String(new_name));
+    }
+    if let Some(revoke_old_after_seconds) = args.revoke_old_after_seconds {
+        object.insert(
+            "revoke_old_after_seconds".to_string(),
+            Value::Number(revoke_old_after_seconds.into()),
+        );
+    }
+    Ok(Value::Object(object))
 }

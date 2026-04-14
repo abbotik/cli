@@ -8,6 +8,9 @@ const AUTH_AFTER_HELP: &str = include_str!("../docs/help/auth-after-help.md");
 const AUTH_LOGIN_AFTER_HELP: &str = include_str!("../docs/help/auth-login-after-help.md");
 const AUTH_REGISTER_AFTER_HELP: &str = include_str!("../docs/help/auth-register-after-help.md");
 const AUTH_REFRESH_AFTER_HELP: &str = include_str!("../docs/help/auth-refresh-after-help.md");
+const AUTH_PROVISION_AFTER_HELP: &str = include_str!("../docs/help/auth-provision-after-help.md");
+const AUTH_CHALLENGE_AFTER_HELP: &str = include_str!("../docs/help/auth-challenge-after-help.md");
+const AUTH_VERIFY_AFTER_HELP: &str = include_str!("../docs/help/auth-verify-after-help.md");
 const AUTH_DISSOLVE_AFTER_HELP: &str = include_str!("../docs/help/auth-dissolve-after-help.md");
 const AUTH_DISSOLVE_CONFIRM_AFTER_HELP: &str = include_str!("../docs/help/auth-dissolve-confirm-after-help.md");
 const AUTH_TOKEN_AFTER_HELP: &str = include_str!("../docs/help/auth-token-after-help.md");
@@ -29,11 +32,12 @@ const USER_LIST_AFTER_HELP: &str = include_str!("../docs/help/user-list-after-he
 const USER_CREATE_AFTER_HELP: &str = include_str!("../docs/help/user-create-after-help.md");
 const USER_DELETE_AFTER_HELP: &str = include_str!("../docs/help/user-delete-after-help.md");
 const USER_PASSWORD_AFTER_HELP: &str = include_str!("../docs/help/user-password-after-help.md");
-const USER_KEYS_AFTER_HELP: &str = include_str!("../docs/help/user-keys-after-help.md");
-const USER_KEYS_CREATE_AFTER_HELP: &str = include_str!("../docs/help/user-keys-create-after-help.md");
-const USER_KEYS_DELETE_AFTER_HELP: &str = include_str!("../docs/help/user-keys-delete-after-help.md");
 const USER_SUDO_AFTER_HELP: &str = include_str!("../docs/help/user-sudo-after-help.md");
 const USER_FAKE_AFTER_HELP: &str = include_str!("../docs/help/user-fake-after-help.md");
+const KEYS_AFTER_HELP: &str = include_str!("../docs/help/keys-after-help.md");
+const KEYS_CREATE_AFTER_HELP: &str = include_str!("../docs/help/keys-create-after-help.md");
+const KEYS_ROTATE_AFTER_HELP: &str = include_str!("../docs/help/keys-rotate-after-help.md");
+const KEYS_DELETE_AFTER_HELP: &str = include_str!("../docs/help/keys-delete-after-help.md");
 const CRON_AFTER_HELP: &str = include_str!("../docs/help/cron-after-help.md");
 const FS_AFTER_HELP: &str = include_str!("../docs/help/fs-after-help.md");
 const APP_AFTER_HELP: &str = include_str!("../docs/help/app-after-help.md");
@@ -99,6 +103,8 @@ pub enum Command {
     Trashed(TrashedCommand),
     /// User and sudo workflows
     User(UserCommand),
+    /// Tenant machine key management
+    Keys(KeysCommand),
     /// Scheduled process workflows
     Cron(CronCommand),
     /// Tenant filesystem workflows
@@ -139,6 +145,12 @@ pub enum AuthSubcommand {
     Register(AuthRegisterCommand),
     /// Refresh a token
     Refresh(AuthRefreshCommand),
+    /// Bootstrap machine auth with the first tenant-bound public key
+    Provision(AuthProvisionCommand),
+    /// Ask for a machine-auth signing challenge
+    Challenge(AuthChallengeCommand),
+    /// Verify a signed challenge and mint a Monk bearer token
+    Verify(AuthVerifyCommand),
     /// Dissolve a tenant via the two-step confirmation flow
     Dissolve(AuthDissolveCommand),
     /// Show, set, or clear the saved JWT
@@ -197,6 +209,62 @@ pub struct AuthRefreshCommand {
     /// Refresh token to exchange; defaults to the saved token
     #[arg(long)]
     pub token: Option<String>,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = AUTH_PROVISION_AFTER_HELP)]
+pub struct AuthProvisionCommand {
+    /// Tenant name to provision
+    #[arg(long)]
+    pub tenant: Option<String>,
+
+    /// Canonical username for the bootstrap root user
+    #[arg(long)]
+    pub username: Option<String>,
+
+    /// Public key PEM, use - for stdin or @<path> for a file
+    #[arg(long = "public-key")]
+    pub public_key: Option<String>,
+
+    /// Public-key algorithm
+    #[arg(long)]
+    pub algorithm: Option<String>,
+
+    /// Friendly name for the provisioned key
+    #[arg(long = "key-name")]
+    pub key_name: Option<String>,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = AUTH_CHALLENGE_AFTER_HELP)]
+pub struct AuthChallengeCommand {
+    /// Tenant name to authenticate against
+    #[arg(long)]
+    pub tenant: Option<String>,
+
+    /// Key ID to challenge
+    #[arg(long = "key-id")]
+    pub key_id: Option<String>,
+
+    /// Key fingerprint to challenge
+    #[arg(long)]
+    pub fingerprint: Option<String>,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = AUTH_VERIFY_AFTER_HELP)]
+pub struct AuthVerifyCommand {
+    /// Tenant name to authenticate against
+    #[arg(long)]
+    pub tenant: Option<String>,
+
+    /// Challenge ID returned by monk auth provision/challenge
+    #[arg(long = "challenge-id")]
+    pub challenge_id: Option<String>,
+
+    /// Base64url signature, use - for stdin or @<path> for a file
+    #[arg(long)]
+    pub signature: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -639,7 +707,6 @@ pub enum UserSubcommand {
     Update(UserIdArg),
     Delete(UserDeleteCommand),
     Password(UserPasswordCommand),
-    Keys(UserKeysCommand),
     Sudo(UserSudoCommand),
     Fake(UserFakeCommand),
 }
@@ -705,36 +772,39 @@ pub struct UserPasswordCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_KEYS_AFTER_HELP)]
-pub struct UserKeysCommand {
+#[command(after_long_help = KEYS_AFTER_HELP)]
+pub struct KeysCommand {
     #[command(subcommand)]
-    pub command: UserKeysSubcommand,
+    pub command: KeysSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = USER_KEYS_AFTER_HELP)]
-pub enum UserKeysSubcommand {
-    List(UserIdArg),
-    Create(UserKeysCreateCommand),
-    Delete(UserKeyDeleteCommand),
+#[command(after_long_help = KEYS_AFTER_HELP)]
+pub enum KeysSubcommand {
+    List,
+    Create(KeysCreateCommand),
+    Rotate(KeysRotateCommand),
+    Delete(KeysDeleteCommand),
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_KEYS_CREATE_AFTER_HELP)]
-pub struct UserKeysCreateCommand {
-    pub id: String,
+#[command(after_long_help = KEYS_CREATE_AFTER_HELP)]
+pub struct KeysCreateCommand {
+    /// Tenant-local user ID to bind the key to
+    #[arg(long = "user-id")]
+    pub user_id: Option<String>,
+
+    /// Public key PEM, use - for stdin or @<path> for a file
+    #[arg(long = "public-key")]
+    pub public_key: Option<String>,
 
     /// Friendly name for the API key
     #[arg(long)]
     pub name: Option<String>,
 
-    /// Environment to generate the key for
+    /// Public-key algorithm
     #[arg(long)]
-    pub environment: Option<String>,
-
-    /// Raw JSON permissions object
-    #[arg(long)]
-    pub permissions: Option<String>,
+    pub algorithm: Option<String>,
 
     /// ISO 8601 expiration timestamp
     #[arg(long = "expires-at")]
@@ -742,9 +812,32 @@ pub struct UserKeysCreateCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_KEYS_DELETE_AFTER_HELP)]
-pub struct UserKeyDeleteCommand {
-    pub id: String,
+#[command(after_long_help = KEYS_ROTATE_AFTER_HELP)]
+pub struct KeysRotateCommand {
+    /// Existing key ID to rotate
+    #[arg(long = "key-id")]
+    pub key_id: Option<String>,
+
+    /// Replacement public key PEM, use - for stdin or @<path> for a file
+    #[arg(long = "new-public-key")]
+    pub new_public_key: Option<String>,
+
+    /// Public-key algorithm
+    #[arg(long)]
+    pub algorithm: Option<String>,
+
+    /// Friendly name for the replacement key
+    #[arg(long = "new-name")]
+    pub new_name: Option<String>,
+
+    /// Delay before the old key is revoked
+    #[arg(long = "revoke-old-after-seconds")]
+    pub revoke_old_after_seconds: Option<u32>,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = KEYS_DELETE_AFTER_HELP)]
+pub struct KeysDeleteCommand {
     pub key_id: String,
 }
 
