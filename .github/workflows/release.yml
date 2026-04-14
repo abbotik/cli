@@ -82,3 +82,23 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.tar.gz.sha256
+
+      - name: Mirror artifacts to Homebrew releases
+        if: ${{ secrets.HOMEBREW_RELEASES_TOKEN != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_RELEASES_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag="abbot-${GITHUB_REF_NAME}"
+          release_title="abbot ${GITHUB_REF_NAME}"
+          repo="abbotik/homebrew-releases"
+
+          if gh release view "${release_tag}" --repo "${repo}" >/dev/null 2>&1; then
+            gh release upload "${release_tag}" dist/*.tar.gz dist/*.tar.gz.sha256 --clobber --repo "${repo}"
+          else
+            gh release create "${release_tag}" dist/*.tar.gz dist/*.tar.gz.sha256 \
+              --repo "${repo}" \
+              --title "${release_title}" \
+              --notes "Public Homebrew release artifacts for ${release_title}."
+          fi
