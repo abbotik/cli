@@ -10,6 +10,20 @@ use crate::error::AbbotikError;
 const CONFIG_DIR_NAME: &str = "abbotik";
 const CONFIG_FILE_NAME: &str = "config.json";
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct MachineAuthConfig {
+    #[serde(default)]
+    pub tenant: Option<String>,
+    #[serde(default)]
+    pub key_id: Option<String>,
+    #[serde(default)]
+    pub key_fingerprint: Option<String>,
+    #[serde(default)]
+    pub public_key_path: Option<String>,
+    #[serde(default)]
+    pub private_key_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AbbotikConfig {
     #[serde(default = "AbbotikConfig::default_base_url")]
@@ -18,6 +32,8 @@ pub struct AbbotikConfig {
     pub token: Option<String>,
     #[serde(default = "AbbotikConfig::default_output_format")]
     pub output_format: OutputFormat,
+    #[serde(default)]
+    pub machine_auth: Option<MachineAuthConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -35,6 +51,7 @@ impl AbbotikConfig {
             base_url: base_url.into(),
             token: None,
             output_format: OutputFormat::Json,
+            machine_auth: None,
         }
     }
 
@@ -113,6 +130,10 @@ impl AbbotikConfig {
         self.token = None;
     }
 
+    pub fn machine_auth_mut(&mut self) -> &mut MachineAuthConfig {
+        self.machine_auth.get_or_insert_with(MachineAuthConfig::default)
+    }
+
     pub fn token(&self) -> Option<&str> {
         self.token.as_deref()
     }
@@ -133,6 +154,7 @@ impl Default for AbbotikConfig {
             base_url: Self::default_base_url(),
             token: None,
             output_format: Self::default_output_format(),
+            machine_auth: None,
         }
     }
 }
@@ -151,7 +173,7 @@ impl AbbotikConfig {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{AbbotikConfig, OutputFormat};
+    use super::{AbbotikConfig, MachineAuthConfig, OutputFormat};
 
     #[test]
     fn default_base_url_points_to_public_api() {
@@ -170,6 +192,13 @@ mod tests {
             base_url: "https://example.com".to_string(),
             token: Some("jwt-one".to_string()),
             output_format: OutputFormat::Yaml,
+            machine_auth: Some(MachineAuthConfig {
+                tenant: Some("acme".to_string()),
+                key_id: Some("key-1".to_string()),
+                key_fingerprint: Some("fp_1234".to_string()),
+                public_key_path: Some("/tmp/machine.pub".to_string()),
+                private_key_path: Some("/tmp/machine.key".to_string()),
+            }),
         };
 
         config.save_to_path(&path).expect("config should save");
@@ -178,6 +207,9 @@ mod tests {
         assert_eq!(loaded.base_url, "https://example.com");
         assert_eq!(loaded.token.as_deref(), Some("jwt-one"));
         assert_eq!(loaded.output_format, OutputFormat::Yaml);
+        assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.tenant.as_deref()), Some("acme"));
+        assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.public_key_path.as_deref()), Some("/tmp/machine.pub"));
+        assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.private_key_path.as_deref()), Some("/tmp/machine.key"));
 
         let _ = std::fs::remove_file(&path);
     }
@@ -191,6 +223,17 @@ mod tests {
 
         config.clear_token();
         assert_eq!(config.token, None);
+    }
+
+    #[test]
+    fn machine_auth_mut_creates_default_section() {
+        let mut config = AbbotikConfig::default();
+        config.machine_auth_mut().private_key_path = Some("/tmp/machine.key".to_string());
+
+        assert_eq!(
+            config.machine_auth.as_ref().and_then(|m| m.private_key_path.as_deref()),
+            Some("/tmp/machine.key")
+        );
     }
 }
 

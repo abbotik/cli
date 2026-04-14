@@ -226,6 +226,14 @@ pub struct AuthProvisionCommand {
     #[arg(long = "public-key")]
     pub public_key: Option<String>,
 
+    /// Save the source public key path into local config for future machine refresh
+    #[arg(long = "save-public-key-path")]
+    pub save_public_key_path: Option<String>,
+
+    /// Save the matching private key path into local config for future machine refresh
+    #[arg(long = "save-private-key-path")]
+    pub save_private_key_path: Option<String>,
+
     /// Public-key algorithm
     #[arg(long)]
     pub algorithm: Option<String>,
@@ -265,6 +273,14 @@ pub struct AuthVerifyCommand {
     /// Base64url signature, use - for stdin or @<path> for a file
     #[arg(long)]
     pub signature: Option<String>,
+
+    /// Save the source public key path into local config for future machine refresh
+    #[arg(long = "save-public-key-path")]
+    pub save_public_key_path: Option<String>,
+
+    /// Save the matching private key path into local config for future machine refresh
+    #[arg(long = "save-private-key-path")]
+    pub save_private_key_path: Option<String>,
 }
 
 #[derive(Args, Debug)]

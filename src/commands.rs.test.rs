@@ -41,6 +41,8 @@ fn parses_machine_auth_commands() {
         "machine_root",
         "--public-key",
         "@machine.pub",
+        "--save-private-key-path",
+        "~/.config/secrets/machine.key",
     ])
     .expect("provision should parse");
 
@@ -50,6 +52,10 @@ fn parses_machine_auth_commands() {
                 assert_eq!(args.tenant.as_deref(), Some("acme"));
                 assert_eq!(args.username.as_deref(), Some("machine_root"));
                 assert_eq!(args.public_key.as_deref(), Some("@machine.pub"));
+                assert_eq!(
+                    args.save_private_key_path.as_deref(),
+                    Some("~/.config/secrets/machine.key")
+                );
             }
             other => panic!("expected provision command, got {other:?}"),
         },
@@ -66,6 +72,8 @@ fn parses_machine_auth_commands() {
         "challenge-1",
         "--signature",
         "@sig.txt",
+        "--save-public-key-path",
+        "~/.config/secrets/machine.pub",
     ])
     .expect("verify should parse");
 
@@ -74,6 +82,10 @@ fn parses_machine_auth_commands() {
             AuthSubcommand::Verify(args) => {
                 assert_eq!(args.challenge_id.as_deref(), Some("challenge-1"));
                 assert_eq!(args.signature.as_deref(), Some("@sig.txt"));
+                assert_eq!(
+                    args.save_public_key_path.as_deref(),
+                    Some("~/.config/secrets/machine.pub")
+                );
             }
             other => panic!("expected verify command, got {other:?}"),
         },

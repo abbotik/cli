@@ -1,10 +1,13 @@
 use std::{
     fs,
     io::{self, IsTerminal, Read},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use ed25519_dalek::{pkcs8::DecodePrivateKey, Signer, SigningKey};
 use reqwest::Method;
+use serde::Deserialize;
 use serde_json::{json, Map, Value};
 
 use crate::{
@@ -74,6 +77,149 @@ async fn public(command: PublicCommand, client: &ApiClient) -> anyhow::Result<()
     Ok(())
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+struct TokenClaims {
+    #[serde(default)]
+    auth_type: Option<String>,
+    #[serde(default)]
+    tenant: Option<String>,
+    #[serde(default)]
+    key_id: Option<String>,
+    #[serde(default)]
+    key_fingerprint: Option<String>,
+}
+
+fn decode_token_claims(token: &str) -> anyhow::Result<TokenClaims> {
+    let payload = token
+        .split('.')
+        .nth(1)
+        .ok_or_else(|| anyhow::anyhow!("token is not a valid JWT"))?;
+    let bytes = URL_SAFE_NO_PAD
+        .decode(payload)
+        .map_err(|error| anyhow::anyhow!("failed to decode token payload: {error}"))?;
+    Ok(serde_json::from_slice(&bytes)?)
+}
+
+fn normalize_path_string(path: &str) -> anyhow::Result<String> {
+    let normalized = fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
+    Ok(normalized.to_string_lossy().to_string())
+}
+
+fn source_path_string(source: Option<&str>) -> anyhow::Result<Option<String>> {
+    match source.and_then(|value| value.strip_prefix('@')) {
+        Some(path) => Ok(Some(normalize_path_string(path)?)),
+        None => Ok(None),
+    }
+}
+
+fn sign_machine_nonce(private_key_path: &str, nonce: &str) -> anyhow::Result<String> {
+    let pem = fs::read_to_string(private_key_path)?;
+    let signing_key = SigningKey::from_pkcs8_pem(&pem)
+        .map_err(|error| anyhow::anyhow!("failed to decode Ed25519 private key at {private_key_path}: {error}"))?;
+    let signature = signing_key.sign(nonce.as_bytes());
+    Ok(URL_SAFE_NO_PAD.encode(signature.to_bytes()))
+}
+
+fn update_machine_auth_from_verify_response(
+    config: &mut AbbotikConfig,
+    verify_data: Option<&crate::api::VerifyData>,
+    token: &str,
+    public_key_path: Option<&str>,
+    private_key_path: Option<&str>,
+) -> anyhow::Result<()> {
+    let claims = decode_token_claims(token).unwrap_or_default();
+    let machine_auth = config.machine_auth_mut();
+
+    if let Some(data) = verify_data {
+        machine_auth.tenant = Some(data.tenant.clone());
+        machine_auth.key_id = Some(data.key_id.clone());
+    }
+    if let Some(tenant) = claims.tenant {
+        machine_auth.tenant = Some(tenant);
+    }
+    if let Some(key_id) = claims.key_id {
+        machine_auth.key_id = Some(key_id);
+    }
+    if let Some(fingerprint) = claims.key_fingerprint {
+        machine_auth.key_fingerprint = Some(fingerprint);
+    }
+    if let Some(path) = public_key_path {
+        machine_auth.public_key_path = Some(normalize_path_string(path)?);
+    }
+    if let Some(path) = private_key_path {
+        machine_auth.private_key_path = Some(normalize_path_string(path)?);
+    }
+
+    Ok(())
+}
+
+async fn refresh_machine_auth(
+    client: &ApiClient,
+    config: &mut AbbotikConfig,
+    claims: TokenClaims,
+    save_path: Option<&Path>,
+) -> anyhow::Result<Value> {
+    let machine_auth = config.machine_auth.clone().unwrap_or_default();
+    let tenant = claims
+        .tenant
+        .or(machine_auth.tenant)
+        .ok_or_else(|| anyhow::anyhow!("machine refresh requires a tenant in the saved token or config"))?;
+    let private_key_path = machine_auth
+        .private_key_path
+        .ok_or_else(|| anyhow::anyhow!("machine refresh requires a saved private key path in local config"))?;
+    let key_id = claims.key_id.or(machine_auth.key_id);
+    let fingerprint = claims.key_fingerprint.or(machine_auth.key_fingerprint);
+
+    if key_id.is_none() && fingerprint.is_none() {
+        return Err(anyhow::anyhow!(
+            "machine refresh requires a saved key id or fingerprint in the token or config"
+        ));
+    }
+
+    let challenge = client
+        .auth_challenge(&ChallengeRequest {
+            tenant: Some(tenant.clone()),
+            key_id,
+            fingerprint,
+        })
+        .await?;
+    let challenge_data = challenge
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("challenge response did not include challenge data"))?;
+    let signature = sign_machine_nonce(&private_key_path, &challenge_data.nonce)?;
+    let verify = client
+        .auth_verify(&VerifyRequest {
+            tenant: Some(tenant),
+            challenge_id: Some(challenge_data.challenge_id.clone()),
+            signature: Some(signature),
+        })
+        .await?;
+    let next_token = verify
+        .data
+        .as_ref()
+        .map(|data| data.token.clone())
+        .ok_or_else(|| anyhow::anyhow!("verify response did not include a bearer token"))?;
+
+    config.set_token(next_token.clone());
+    update_machine_auth_from_verify_response(config, verify.data.as_ref(), &next_token, None, None)?;
+    save_config(config, save_path)?;
+
+    Ok(json!({
+        "success": verify.success,
+        "data": {
+            "token": next_token,
+            "expires_in": verify.data.as_ref().map(|data| data.expires_in),
+            "tenant": verify.data.as_ref().map(|data| data.tenant.clone()),
+            "tenant_id": verify.data.as_ref().map(|data| data.tenant_id.clone()),
+            "key_id": verify.data.as_ref().map(|data| data.key_id.clone()),
+            "refresh_method": "challenge_verify"
+        },
+        "challenge": challenge,
+        "verify": verify,
+    }))
+}
+
 async fn auth(
     command: AuthCommand,
     config: &mut AbbotikConfig,
@@ -137,11 +283,21 @@ async fn auth(
                 .token
                 .or_else(|| config.token.clone())
                 .ok_or_else(|| anyhow::anyhow!("refresh requires a token or saved config token"))?;
-            let response = client.auth_refresh(&RefreshRequest { token }).await?;
-            if let Some(next_token) = response.data.as_ref().map(|data| data.token.clone()) {
-                config.set_token(next_token);
-                save_config(config, save_path)?;
-            }
+
+            let response = match decode_token_claims(&token) {
+                Ok(claims) if claims.auth_type.as_deref() == Some("public_key") => {
+                    refresh_machine_auth(client, config, claims, save_path).await?
+                }
+                _ => {
+                    let response = client.auth_refresh(&RefreshRequest { token }).await?;
+                    if let Some(next_token) = response.data.as_ref().map(|data| data.token.clone()) {
+                        config.set_token(next_token);
+                        save_config(config, save_path)?;
+                    }
+                    json!(response)
+                }
+            };
+
             print_json(&response)?;
         }
         crate::cli::AuthSubcommand::Provision(args) => {
@@ -155,6 +311,33 @@ async fn auth(
                     key_name: args.key_name,
                 })
                 .await?;
+
+            let saved_public_key_path = match args.save_public_key_path.as_deref() {
+                Some(path) => Some(normalize_path_string(path)?),
+                None => source_path_string(args.public_key.as_deref())?,
+            };
+            let saved_private_key_path = args
+                .save_private_key_path
+                .as_deref()
+                .map(normalize_path_string)
+                .transpose()?;
+
+            if saved_public_key_path.is_some() || saved_private_key_path.is_some() {
+                if let Some(data) = response.data.as_ref() {
+                    let machine_auth = config.machine_auth_mut();
+                    machine_auth.tenant = Some(data.tenant.clone());
+                    machine_auth.key_id = Some(data.key.id.clone());
+                    machine_auth.key_fingerprint = Some(data.key.fingerprint.clone());
+                    if let Some(path) = saved_public_key_path {
+                        machine_auth.public_key_path = Some(path);
+                    }
+                    if let Some(path) = saved_private_key_path {
+                        machine_auth.private_key_path = Some(path);
+                    }
+                    save_config(config, save_path)?;
+                }
+            }
+
             print_json(&response)?;
         }
         crate::cli::AuthSubcommand::Challenge(args) => {
@@ -177,7 +360,14 @@ async fn auth(
                 })
                 .await?;
             if let Some(token) = response.data.as_ref().map(|data| data.token.clone()) {
-                config.set_token(token);
+                config.set_token(token.clone());
+                update_machine_auth_from_verify_response(
+                    config,
+                    response.data.as_ref(),
+                    &token,
+                    args.save_public_key_path.as_deref(),
+                    args.save_private_key_path.as_deref(),
+                )?;
                 save_config(config, save_path)?;
             }
             print_json(&response)?;
