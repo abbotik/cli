@@ -1,41 +1,41 @@
 # Root-level usage notes
 
-By default, `monk` talks to the public Monk API at `https://monk-api.com`.
+By default, `abbot` talks to the public Abbotik API at `https://api.abbotik.com`.
 
 Examples:
 
 ```bash
-monk auth register --tenant acme --username alice --email alice@example.com --password secret-pass
-monk auth login --tenant acme --username alice --password secret-pass
-monk public llms
-monk describe list
-monk data list users
-monk data get users 123
-monk auth provision --tenant acme --username machine_root --public-key @machine.pub
-monk auth verify --tenant acme --challenge-id <id> --signature @signature.txt
-monk keys list
-monk find query users --where '{"active":true}'
-monk aggregate run users --count
-monk bulk export
-monk fs get /docs/README.md
+abbot auth register --tenant acme --username alice --email alice@example.com --password secret-pass
+abbot auth login --tenant acme --username alice --password secret-pass
+abbot public llms
+abbot describe list
+abbot data list users
+abbot data get users 123
+abbot auth provision --tenant acme --username machine_root --public-key @machine.pub
+abbot auth verify --tenant acme --challenge-id <id> --signature @signature.txt
+abbot keys list
+abbot find query users --where '{"active":true}'
+abbot aggregate run users --count
+abbot bulk export
+abbot fs get /docs/README.md
 ```
 
 Useful onboarding sequence for new users:
 
 ```bash
-monk auth register --tenant acme --username alice --email alice@example.com --password secret-pass
-monk public llms
-monk health
-monk describe list
-monk data list <model>
+abbot auth register --tenant acme --username alice --email alice@example.com --password secret-pass
+abbot public llms
+abbot health
+abbot describe list
+abbot data list <model>
 ```
 
 Machine-readable output is available with `--format json`:
 
 ```bash
-monk --format json auth login --tenant acme --username alice --password secret-pass
-monk --format json describe list
+abbot --format json auth login --tenant acme --username alice --password secret-pass
+abbot --format json describe list
 ```
 
-If you are automating against Monk, start from the root command tree and then
+If you are automating against Abbotik, start from the root command tree and then
 move down into the resource branch you need.

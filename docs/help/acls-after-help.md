@@ -7,7 +7,7 @@ specific model and id.
 
 Common uses:
 
-- `monk acls get users 123`
-- `monk acls update users 123`
+- `abbot acls get users 123`
+- `abbot acls update users 123`
 
 Use `--help` on a subcommand for the next level down.

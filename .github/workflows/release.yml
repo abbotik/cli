@@ -43,10 +43,10 @@ jobs:
           target="${{ matrix.target }}"
           out_dir="dist/${target}"
           mkdir -p "${out_dir}"
-          cp "target/${target}/release/monk" "${out_dir}/monk"
-          chmod +x "${out_dir}/monk"
-          tarball="monk-cli-${version}-${target}.tar.gz"
-          tar -czf "dist/${tarball}" -C "${out_dir}" monk
+          cp "target/${target}/release/abbot" "${out_dir}/abbot"
+          chmod +x "${out_dir}/abbot"
+          tarball="abbotik-cli-${version}-${target}.tar.gz"
+          tar -czf "dist/${tarball}" -C "${out_dir}" abbot
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum "dist/${tarball}" > "dist/${tarball}.sha256"
           else
@@ -58,8 +58,8 @@ jobs:
         with:
           name: release-${{ matrix.target }}
           path: |
-            dist/monk-cli-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
-            dist/monk-cli-${{ github.ref_name }}-${{ matrix.target }}.tar.gz.sha256
+            dist/abbotik-cli-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            dist/abbotik-cli-${{ github.ref_name }}-${{ matrix.target }}.tar.gz.sha256
           if-no-files-found: error
 
   publish:

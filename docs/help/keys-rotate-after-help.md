@@ -5,4 +5,4 @@ before the old key is revoked.
 
 Common use:
 
-- `monk keys rotate --key-id <uuid> --new-public-key @next.pub --revoke-old-after-seconds 300`
+- `abbot keys rotate --key-id <uuid> --new-public-key @next.pub --revoke-old-after-seconds 300`

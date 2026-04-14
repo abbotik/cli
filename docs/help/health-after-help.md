@@ -1,12 +1,12 @@
 # Health
 
-Check whether the Monk API is reachable and responding.
+Check whether the Abbotik API is reachable and responding.
 
-By default `monk health` talks to `https://monk-api.com`.
+By default `abbot health` talks to `https://api.abbotik.com`.
 
 Common uses:
 
-- `monk health`
-- `monk --base-url https://monk-api.com health`
+- `abbot health`
+- `abbot --base-url https://api.abbotik.com health`
 
 Use `--help` on a subcommand for the next level down.

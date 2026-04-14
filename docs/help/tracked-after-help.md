@@ -7,7 +7,7 @@ a specific tracked change.
 
 Common uses:
 
-- `monk tracked list users 123`
-- `monk tracked get users 123 change-id`
+- `abbot tracked list users 123`
+- `abbot tracked get users 123 change-id`
 
 Use `--help` on a subcommand for the next level down.

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${MONK_CLI_REPO:-ianzepp/monk-cli}"
-INSTALL_DIR="${MONK_CLI_INSTALL_DIR:-${HOME}/.local/bin}"
-VERSION="${MONK_CLI_VERSION:-}"
+REPO="${ABBOTIK_CLI_REPO:-abbotik/cli}"
+INSTALL_DIR="${ABBOTIK_CLI_INSTALL_DIR:-${HOME}/.local/bin}"
+VERSION="${ABBOTIK_CLI_VERSION:-}"
 
 if [[ -z "${VERSION}" ]]; then
   VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)"
@@ -37,7 +37,7 @@ case "${os}" in
     ;;
 esac
 
-asset="monk-cli-${VERSION}-${target}.tar.gz"
+asset="abbotik-cli-${VERSION}-${target}.tar.gz"
 base_url="https://github.com/${REPO}/releases/download/${VERSION}/${asset}"
 sha_url="${base_url}.sha256"
 
@@ -66,6 +66,6 @@ fi
 
 mkdir -p "${INSTALL_DIR}"
 tar -xzf "${archive_path}" -C "${INSTALL_DIR}"
-chmod +x "${INSTALL_DIR}/monk"
+chmod +x "${INSTALL_DIR}/abbot"
 
-echo "Installed monk to ${INSTALL_DIR}/monk"
+echo "Installed abbot to ${INSTALL_DIR}/abbot"

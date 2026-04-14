@@ -1,6 +1,6 @@
-# monk-cli phase 1 summary
+# abbot phase 1 summary
 
-Implemented the shared Monk API helper layer and wired the CLI command families to the helper surface.
+Implemented the shared Abbotik API helper layer and wired the CLI command families to the helper surface.
 
 ## Delivered
 - config loading/saving with env overrides

@@ -4,7 +4,7 @@ Run filtered and saved queries.
 
 Common uses:
 
-- `monk find query users --where ...`
-- `monk find saved users recent`
+- `abbot find query users --where ...`
+- `abbot find saved users recent`
 
 This branch is intentionally concise; use the command itself for the full flag list.

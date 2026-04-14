@@ -7,9 +7,9 @@ model, or work inside its `fields` branch.
 
 Common uses:
 
-- `monk describe list`
-- `monk describe get users`
-- `monk describe fields list users`
-- `monk describe fields get users name`
+- `abbot describe list`
+- `abbot describe get users`
+- `abbot describe fields list users`
+- `abbot describe fields get users name`
 
 Use `--help` on `list`, `get`, or `fields` for the next level down.

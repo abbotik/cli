@@ -7,9 +7,9 @@ related record paths.
 
 Common uses:
 
-- `monk data list users`
-- `monk data get users 123`
-- `monk data patch users`
-- `monk data relationship users 123 posts get`
+- `abbot data list users`
+- `abbot data get users 123`
+- `abbot data patch users`
+- `abbot data relationship users 123 posts get`
 
 Use `--help` on a subcommand for the next level down.

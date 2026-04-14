@@ -1,17 +1,17 @@
-# monk-cli Brief
+# abbot Brief
 
 ## Interpreted Problem
-Build a **new Rust CLI** in `monk-cli/` using `clap` that can interface with the **full Monk API surface** exposed by `monk-api/`.
+Build a **new Rust CLI** in `cli/` using `clap` that can interface with the **full Abbotik API surface** exposed by `api/`.
 
-The CLI should start from a clean slate. The empty `monk-cli/` directory is the target workspace.
+The CLI should start from a clean slate. The empty `cli/` directory is the target workspace.
 
 ## Normalized Spec
 
 ### In scope
 - Create a Rust command-line application with `clap`.
-- Treat `monk-api/` as the API source of truth.
+- Treat `api/` as the API source of truth.
 - Use `cephalopodic/cli/` as the structural reference for command layout, config, output, and API-client patterns.
-- Cover Monk API endpoints across:
+- Cover Abbotik API endpoints across:
   - auth
   - health / root / docs
   - describe
@@ -31,12 +31,12 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
 
 ### Out of scope for planning pass
 - Implementation details beyond a recommended structure.
-- Any destructive changes in `monk-api/`.
+- Any destructive changes in `api/`.
 - Any assumptions about hidden endpoints not present in the repo evidence.
 
 ## Repo-Aware Baseline
 
-### `monk-api/`
+### `api/`
 - TypeScript/Bun/Hono backend.
 - Main server entrypoint: `src/index.ts`.
 - HTTP route registration: `src/servers/http.ts`.
@@ -52,32 +52,32 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
   - centralized output policy with JSON/TTY modes
   - surface-by-surface command modules
 
-### `monk-cli/`
+### `cli/`
 - Now populated with a Rust CLI crate.
 - Git repository is initialized.
-- Best treated as the live Monk CLI workspace.
+- Best treated as the live Abbot CLI workspace.
 
 ## Proposed Product Shape
 
-`monk-cli` should be a **shell-native Monk API client** rather than a local admin tool.
+`abbotik-cli` should be a **shell-native Abbotik API client** rather than a local admin tool.
 
 ### Likely top-level command groups
-- `monk auth`
-- `monk health`
-- `monk docs`
-- `monk describe`
-- `monk data`
-- `monk find`
-- `monk aggregate`
-- `monk bulk`
-- `monk acls`
-- `monk stat`
-- `monk tracked`
-- `monk trashed`
-- `monk user`
-- `monk cron`
-- `monk fs`
-- `monk app`
+- `abbot auth`
+- `abbot health`
+- `abbot docs`
+- `abbot describe`
+- `abbot data`
+- `abbot find`
+- `abbot aggregate`
+- `abbot bulk`
+- `abbot acls`
+- `abbot stat`
+- `abbot tracked`
+- `abbot trashed`
+- `abbot user`
+- `abbot cron`
+- `abbot fs`
+- `abbot app`
 
 ### Likely cross-cutting CLI behavior
 - `--format json` for explicit machine output mode.
@@ -89,7 +89,7 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
 ## Stage Graph
 
 ### Stage 1 — Scaffold the crate
-**Input:** empty `monk-cli/` directory
+**Input:** empty `cli/` directory
 
 **Work:**
 - initialize a Rust binary crate
@@ -104,7 +104,7 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
 ---
 
 ### Stage 2 — Define API coverage map
-**Input:** Monk API route surface from `monk-api/src/servers/http.ts` and docs
+**Input:** Abbotik API route surface from `api/src/servers/http.ts` and docs
 
 **Work:**
 - enumerate endpoint groups
@@ -145,7 +145,7 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
 
 **Output:** first user-visible CLI slice
 
-**Validation:** small integration smoke tests against Monk API
+**Validation:** small integration smoke tests against Abbotik API
 
 ---
 
@@ -167,7 +167,7 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
 - `fs`
 - optionally `app`
 
-**Output:** full Monk API client coverage
+**Output:** full Abbotik API client coverage
 
 **Validation:** targeted endpoint tests and command help checks
 
@@ -190,12 +190,12 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
 ## Design Decisions to Make Next
 
 1. **Repository layout**
-   - single binary crate in `monk-cli/`
+   - single binary crate in `cli/`
    - or workspace with library + binary split
 
 2. **Auth model**
    - simple bearer-token config
-   - or richer login/session management if Monk API requires it
+   - or richer login/session management if Abbotik API requires it
 
 3. **Output policy**
    - plain JSON only
@@ -211,17 +211,17 @@ The CLI should start from a clean slate. The empty `monk-cli/` directory is the 
 
 ## Risk Notes
 
-- Monk API has a broad surface; trying to implement every endpoint at once would be too much.
+- Abbotik API has a broad surface; trying to implement every endpoint at once would be too much.
 - Some endpoints may have route-specific request/response conventions that should be confirmed from the route docs before coding.
 - If the CLI is meant to be broadly useful to humans and agents, output consistency matters as much as route coverage.
 
 ## Recommended Next Step
 
-Initialize `monk-cli/` as a Rust crate, then implement the **shared client/config/output layer first**, followed by **auth + health + docs** as the first working slice.
+Initialize `cli/` as a Rust crate, then implement the **shared client/config/output layer first**, followed by **auth + health + docs** as the first working slice.
 
 ## Full API Shape Pass Addendum
 
-This second discovery pass confirmed the live Monk API shape from `src/servers/http.ts` and the route docs under `src/routes/**`.
+This second discovery pass confirmed the live Abbotik API shape from `src/servers/http.ts` and the route docs under `src/routes/**`.
 
 ### Live route families to cover
 - `GET /`, `GET /llms.txt`, `GET /health`
@@ -272,7 +272,7 @@ Each surface will need consistent handling for:
 - path parameter expansion for `:model`, `:id`, `:field`, `:pid`, and similar placeholders
 
 ### Output implications
-Monk API supports multiple response formats and projection controls, so the CLI should plan for:
+Abbotik API supports multiple response formats and projection controls, so the CLI should plan for:
 - TTY-friendly summaries by default
 - explicit JSON mode for machines
 - query options for `format`, `select`, `unwrap`, and related response modifiers

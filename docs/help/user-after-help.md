@@ -7,8 +7,8 @@ operations.
 
 Common uses:
 
-- `monk user me`
-- `monk user list`
-- `monk user sudo`
+- `abbot user me`
+- `abbot user list`
+- `abbot user sudo`
 
 Use `--help` on a subcommand for the next level down.

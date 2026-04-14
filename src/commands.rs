@@ -20,13 +20,13 @@ use crate::{
         TrashedCommand, UserCommand, UserCreateCommand, UserListCommand, UserPasswordCommand,
         UserSubcommand,
     },
-    config::MonkConfig,
+    config::AbbotikConfig,
     data,
 };
 
 pub async fn run(cli: Cli) -> anyhow::Result<()> {
-    let mut config = MonkConfig::load_effective()?;
-    let save_path = MonkConfig::config_path().ok();
+    let mut config = AbbotikConfig::load_effective()?;
+    let save_path = AbbotikConfig::config_path().ok();
 
     if let Some(base_url) = cli.globals.base_url {
         config.base_url = base_url;
@@ -76,7 +76,7 @@ async fn public(command: PublicCommand, client: &ApiClient) -> anyhow::Result<()
 
 async fn auth(
     command: AuthCommand,
-    config: &mut MonkConfig,
+    config: &mut AbbotikConfig,
     client: &ApiClient,
     save_path: Option<&Path>,
 ) -> anyhow::Result<()> {
@@ -840,7 +840,7 @@ async fn auth_dissolve(command: crate::cli::AuthDissolveCommand, client: &ApiCli
 
 async fn auth_token(
     command: crate::cli::AuthTokenCommand,
-    config: &mut MonkConfig,
+    config: &mut AbbotikConfig,
     save_path: Option<&Path>,
 ) -> anyhow::Result<()> {
     match command.command {
@@ -863,7 +863,7 @@ async fn auth_token(
     Ok(())
 }
 
-fn save_config(config: &MonkConfig, save_path: Option<&Path>) -> anyhow::Result<()> {
+fn save_config(config: &AbbotikConfig, save_path: Option<&Path>) -> anyhow::Result<()> {
     if let Some(path) = save_path {
         config.save_to_path(path)?;
     }

@@ -44,8 +44,8 @@ const APP_AFTER_HELP: &str = include_str!("../docs/help/app-after-help.md");
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "monk",
-    about = "CLI for the Monk API at https://monk-api.com",
+    name = "abbot",
+    about = "CLI for the Abbotik API at https://api.abbotik.com",
     long_about = CLI_LONG_ABOUT,
     after_help = CLI_AFTER_HELP,
 )]
@@ -59,7 +59,7 @@ pub struct Cli {
 
 #[derive(Args, Debug, Default)]
 pub struct GlobalOptions {
-    /// Override the Monk API base URL
+    /// Override the Abbotik API base URL
     #[arg(long = "base-url")]
     pub base_url: Option<String>,
 
@@ -149,7 +149,7 @@ pub enum AuthSubcommand {
     Provision(AuthProvisionCommand),
     /// Ask for a machine-auth signing challenge
     Challenge(AuthChallengeCommand),
-    /// Verify a signed challenge and mint a Monk bearer token
+    /// Verify a signed challenge and mint an Abbotik bearer token
     Verify(AuthVerifyCommand),
     /// Dissolve a tenant via the two-step confirmation flow
     Dissolve(AuthDissolveCommand),
@@ -258,7 +258,7 @@ pub struct AuthVerifyCommand {
     #[arg(long)]
     pub tenant: Option<String>,
 
-    /// Challenge ID returned by monk auth provision/challenge
+    /// Challenge ID returned by abbot auth provision/challenge
     #[arg(long = "challenge-id")]
     pub challenge_id: Option<String>,
 

@@ -4,16 +4,16 @@ use crate::cli::{AuthSubcommand, AuthTokenSubcommand, Cli, Command, KeysSubcomma
 
 #[test]
 fn parses_auth_token_get_set_clear() {
-    let get = Cli::try_parse_from(["monk", "auth", "token", "get"]).expect("get should parse");
+    let get = Cli::try_parse_from(["abbot", "auth", "token", "get"]).expect("get should parse");
     assert_auth_token_subcommand(get, AuthTokenSubcommand::Get);
 
-    let clear = Cli::try_parse_from(["monk", "auth", "token", "clear"]).expect("clear should parse");
+    let clear = Cli::try_parse_from(["abbot", "auth", "token", "clear"]).expect("clear should parse");
     assert_auth_token_subcommand(clear, AuthTokenSubcommand::Clear);
 }
 
 #[test]
 fn parses_auth_token_set_with_positional_token() {
-    let cli = Cli::try_parse_from(["monk", "auth", "token", "set", "jwt-test-value"]).expect("set should parse");
+    let cli = Cli::try_parse_from(["abbot", "auth", "token", "set", "jwt-test-value"]).expect("set should parse");
 
     match cli.command {
         Command::Auth(auth) => match auth.command {
@@ -32,7 +32,7 @@ fn parses_auth_token_set_with_positional_token() {
 #[test]
 fn parses_machine_auth_commands() {
     let provision = Cli::try_parse_from([
-        "monk",
+        "abbot",
         "auth",
         "provision",
         "--tenant",
@@ -57,7 +57,7 @@ fn parses_machine_auth_commands() {
     }
 
     let verify = Cli::try_parse_from([
-        "monk",
+        "abbot",
         "auth",
         "verify",
         "--tenant",
@@ -84,7 +84,7 @@ fn parses_machine_auth_commands() {
 #[test]
 fn parses_keys_commands() {
     let create = Cli::try_parse_from([
-        "monk",
+        "abbot",
         "keys",
         "create",
         "--user-id",
@@ -106,7 +106,7 @@ fn parses_keys_commands() {
     }
 
     let rotate = Cli::try_parse_from([
-        "monk",
+        "abbot",
         "keys",
         "rotate",
         "--key-id",

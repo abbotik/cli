@@ -1,6 +1,6 @@
 # Docs
 
-Fetch Monk API documentation by path.
+Fetch Abbotik API documentation by path.
 
 Useful entry points from the API docs surface:
 
@@ -14,8 +14,8 @@ Useful entry points from the API docs surface:
 
 Common uses:
 
-- `monk docs root`
-- `monk docs path /docs`
-- `monk docs path /docs/api/data`
+- `abbot docs root`
+- `abbot docs path /docs`
+- `abbot docs path /docs/api/data`
 
 Use `--help` on `root` or `path` for the next level down.

@@ -4,8 +4,8 @@ use reqwest::{header, Client, Method, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
-    config::{MonkConfig, OutputFormat},
-    error::{MonkError, ServerErrorEnvelope},
+    config::{AbbotikConfig, OutputFormat},
+    error::{AbbotikError, ServerErrorEnvelope},
 };
 
 #[derive(Debug, Clone)]
@@ -211,7 +211,7 @@ pub struct RecordRequest {
 }
 
 impl ApiClient {
-    pub fn new(config: MonkConfig) -> Result<Self, MonkError> {
+    pub fn new(config: AbbotikConfig) -> Result<Self, AbbotikError> {
         let base_url = config.base_url()?;
         Ok(Self::from_parts(
             base_url,
@@ -258,18 +258,18 @@ impl ApiClient {
         self
     }
 
-    pub fn endpoint(&self, path: &str) -> Result<url::Url, MonkError> {
+    pub fn endpoint(&self, path: &str) -> Result<url::Url, AbbotikError> {
         self.base_url
             .join(path)
-            .map_err(|_| MonkError::InvalidBaseUrl(path.to_string()))
+            .map_err(|_| AbbotikError::InvalidBaseUrl(path.to_string()))
     }
 
-    pub async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, MonkError> {
+    pub async fn get_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, AbbotikError> {
         self.request_json(Method::GET, path, Option::<&()>::None)
             .await
     }
 
-    pub async fn get_json_with_query<Q, T>(&self, path: &str, query: &Q) -> Result<T, MonkError>
+    pub async fn get_json_with_query<Q, T>(&self, path: &str, query: &Q) -> Result<T, AbbotikError>
     where
         Q: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -278,17 +278,17 @@ impl ApiClient {
             .await
     }
 
-    pub async fn get_text(&self, path: &str) -> Result<String, MonkError> {
+    pub async fn get_text(&self, path: &str) -> Result<String, AbbotikError> {
         self.request_text(Method::GET, path, Option::<&()>::None)
             .await
     }
 
-    pub async fn delete_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, MonkError> {
+    pub async fn delete_json<T: DeserializeOwned>(&self, path: &str) -> Result<T, AbbotikError> {
         self.request_json(Method::DELETE, path, Option::<&()>::None)
             .await
     }
 
-    pub async fn delete_json_with_query<Q, T>(&self, path: &str, query: &Q) -> Result<T, MonkError>
+    pub async fn delete_json_with_query<Q, T>(&self, path: &str, query: &Q) -> Result<T, AbbotikError>
     where
         Q: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -297,7 +297,7 @@ impl ApiClient {
             .await
     }
 
-    pub async fn post_json<B, T>(&self, path: &str, body: &B) -> Result<T, MonkError>
+    pub async fn post_json<B, T>(&self, path: &str, body: &B) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -305,7 +305,7 @@ impl ApiClient {
         self.request_json(Method::POST, path, Some(body)).await
     }
 
-    pub async fn post_json_without_auth<B, T>(&self, path: &str, body: &B) -> Result<T, MonkError>
+    pub async fn post_json_without_auth<B, T>(&self, path: &str, body: &B) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -319,7 +319,7 @@ impl ApiClient {
         path: &str,
         query: &Q,
         body: &B,
-    ) -> Result<T, MonkError>
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         Q: Serialize + ?Sized,
@@ -329,7 +329,7 @@ impl ApiClient {
             .await
     }
 
-    pub async fn put_json<B, T>(&self, path: &str, body: &B) -> Result<T, MonkError>
+    pub async fn put_json<B, T>(&self, path: &str, body: &B) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -342,7 +342,7 @@ impl ApiClient {
         path: &str,
         query: &Q,
         body: &B,
-    ) -> Result<T, MonkError>
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         Q: Serialize + ?Sized,
@@ -352,7 +352,7 @@ impl ApiClient {
             .await
     }
 
-    pub async fn patch_json<B, T>(&self, path: &str, body: &B) -> Result<T, MonkError>
+    pub async fn patch_json<B, T>(&self, path: &str, body: &B) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -365,7 +365,7 @@ impl ApiClient {
         path: &str,
         query: &Q,
         body: &B,
-    ) -> Result<T, MonkError>
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         Q: Serialize + ?Sized,
@@ -380,7 +380,7 @@ impl ApiClient {
         method: Method,
         path: &str,
         body: Option<&B>,
-    ) -> Result<T, MonkError>
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -394,7 +394,7 @@ impl ApiClient {
         method: Method,
         path: &str,
         body: Option<&B>,
-    ) -> Result<T, MonkError>
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -409,7 +409,7 @@ impl ApiClient {
         path: &str,
         query: Option<&Q>,
         body: Option<&B>,
-    ) -> Result<T, MonkError>
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         Q: Serialize + ?Sized,
@@ -428,7 +428,7 @@ impl ApiClient {
             request
         };
 
-        let response = request.send().await.map_err(|source| MonkError::Request {
+        let response = request.send().await.map_err(|source| AbbotikError::Request {
             method: method.clone(),
             url: url.to_string(),
             source,
@@ -443,7 +443,7 @@ impl ApiClient {
         path: &str,
         query: Option<&Q>,
         body: Option<&B>,
-    ) -> Result<T, MonkError>
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         Q: Serialize + ?Sized,
@@ -462,7 +462,7 @@ impl ApiClient {
             request
         };
 
-        let response = request.send().await.map_err(|source| MonkError::Request {
+        let response = request.send().await.map_err(|source| AbbotikError::Request {
             method: method.clone(),
             url: url.to_string(),
             source,
@@ -476,7 +476,7 @@ impl ApiClient {
         method: Method,
         path: &str,
         body: Option<&B>,
-    ) -> Result<String, MonkError>
+    ) -> Result<String, AbbotikError>
     where
         B: Serialize + ?Sized,
     {
@@ -490,7 +490,7 @@ impl ApiClient {
         path: &str,
         query: Option<&Q>,
         body: Option<&B>,
-    ) -> Result<String, MonkError>
+    ) -> Result<String, AbbotikError>
     where
         B: Serialize + ?Sized,
         Q: Serialize + ?Sized,
@@ -508,14 +508,14 @@ impl ApiClient {
             request
         };
 
-        let response = request.send().await.map_err(|source| MonkError::Request {
+        let response = request.send().await.map_err(|source| AbbotikError::Request {
             method: method.clone(),
             url: url.to_string(),
             source,
         })?;
 
         let status = response.status();
-        let text = response.text().await.map_err(|source| MonkError::Request {
+        let text = response.text().await.map_err(|source| AbbotikError::Request {
             method: method.clone(),
             url: url.to_string(),
             source,
@@ -524,7 +524,7 @@ impl ApiClient {
         if status.is_success() {
             Ok(text)
         } else {
-            Err(MonkError::Http {
+            Err(AbbotikError::Http {
                 status,
                 method,
                 url: url.to_string(),
@@ -536,63 +536,63 @@ impl ApiClient {
     pub async fn auth_login(
         &self,
         request: &LoginRequest,
-    ) -> Result<ApiEnvelope<LoginData>, MonkError> {
+    ) -> Result<ApiEnvelope<LoginData>, AbbotikError> {
         self.post_json("/auth/login", request).await
     }
 
     pub async fn auth_register(
         &self,
         request: &RegisterRequest,
-    ) -> Result<ApiEnvelope<RegisterData>, MonkError> {
+    ) -> Result<ApiEnvelope<RegisterData>, AbbotikError> {
         self.post_json_without_auth("/auth/register", request).await
     }
 
     pub async fn auth_refresh(
         &self,
         request: &RefreshRequest,
-    ) -> Result<ApiEnvelope<RefreshData>, MonkError> {
+    ) -> Result<ApiEnvelope<RefreshData>, AbbotikError> {
         self.post_json("/auth/refresh", request).await
     }
 
     pub async fn auth_provision(
         &self,
         request: &ProvisionRequest,
-    ) -> Result<ApiEnvelope<ProvisionData>, MonkError> {
+    ) -> Result<ApiEnvelope<ProvisionData>, AbbotikError> {
         self.post_json_without_auth("/auth/provision", request).await
     }
 
     pub async fn auth_challenge(
         &self,
         request: &ChallengeRequest,
-    ) -> Result<ApiEnvelope<ChallengeData>, MonkError> {
+    ) -> Result<ApiEnvelope<ChallengeData>, AbbotikError> {
         self.post_json_without_auth("/auth/challenge", request).await
     }
 
     pub async fn auth_verify(
         &self,
         request: &VerifyRequest,
-    ) -> Result<ApiEnvelope<VerifyData>, MonkError> {
+    ) -> Result<ApiEnvelope<VerifyData>, AbbotikError> {
         self.post_json_without_auth("/auth/verify", request).await
     }
 
     pub async fn auth_dissolve(
         &self,
         request: &DissolveRequest,
-    ) -> Result<ApiEnvelope<DissolveData>, MonkError> {
+    ) -> Result<ApiEnvelope<DissolveData>, AbbotikError> {
         self.post_json_without_auth("/auth/dissolve", request).await
     }
 
     pub async fn auth_dissolve_confirm(
         &self,
         request: &DissolveConfirmRequest,
-    ) -> Result<ApiEnvelope<DissolveConfirmData>, MonkError> {
+    ) -> Result<ApiEnvelope<DissolveConfirmData>, AbbotikError> {
         self.post_json_without_auth("/auth/dissolve/confirm", request).await
     }
 
     pub async fn auth_sudo(
         &self,
         reason: Option<&str>,
-    ) -> Result<ApiEnvelope<SudoData>, MonkError> {
+    ) -> Result<ApiEnvelope<SudoData>, AbbotikError> {
         #[derive(Serialize)]
         struct Body<'a> {
             #[serde(skip_serializing_if = "Option::is_none")]
@@ -602,11 +602,11 @@ impl ApiClient {
         self.post_json("/api/user/sudo", &Body { reason }).await
     }
 
-    pub async fn auth_tenants(&self) -> Result<ApiEnvelope<Vec<TenantSummary>>, MonkError> {
+    pub async fn auth_tenants(&self) -> Result<ApiEnvelope<Vec<TenantSummary>>, AbbotikError> {
         self.get_json("/auth/tenants").await
     }
 
-    pub async fn health(&self) -> Result<ApiEnvelope<HealthData>, MonkError> {
+    pub async fn health(&self) -> Result<ApiEnvelope<HealthData>, AbbotikError> {
         self.get_json("/health").await
     }
 
@@ -614,7 +614,7 @@ impl ApiClient {
         &self,
         method: Method,
         url: url::Url,
-    ) -> Result<reqwest::RequestBuilder, MonkError> {
+    ) -> Result<reqwest::RequestBuilder, AbbotikError> {
         let mut builder = self.client.request(method, url);
 
         if let Some(token) = &self.token {
@@ -629,7 +629,7 @@ impl ApiClient {
         &self,
         method: Method,
         url: url::Url,
-    ) -> Result<reqwest::RequestBuilder, MonkError> {
+    ) -> Result<reqwest::RequestBuilder, AbbotikError> {
         let builder = self.client.request(method, url);
         Ok(builder.header(header::ACCEPT, self.accept_header_value()))
     }
@@ -647,19 +647,19 @@ impl ApiClient {
         method: Method,
         url: url::Url,
         response: Response,
-    ) -> Result<T, MonkError> {
+    ) -> Result<T, AbbotikError> {
         let status = response.status();
         let bytes = response
             .bytes()
             .await
-            .map_err(|source| MonkError::Request {
+            .map_err(|source| AbbotikError::Request {
                 method: method.clone(),
                 url: url.to_string(),
                 source,
             })?;
 
         if status.is_success() {
-            serde_json::from_slice(&bytes).map_err(|source| MonkError::InvalidResponse {
+            serde_json::from_slice(&bytes).map_err(|source| AbbotikError::InvalidResponse {
                 method,
                 url: url.to_string(),
                 source,
@@ -679,7 +679,7 @@ impl ApiClient {
                     String::from_utf8_lossy(&bytes).to_string()
                 };
 
-            Err(MonkError::Http {
+            Err(AbbotikError::Http {
                 status,
                 method,
                 url: url.to_string(),
@@ -689,8 +689,8 @@ impl ApiClient {
     }
 }
 
-impl From<MonkConfig> for ApiClient {
-    fn from(config: MonkConfig) -> Self {
-        Self::new(config).expect("valid MonkConfig base URL")
+impl From<AbbotikConfig> for ApiClient {
+    fn from(config: AbbotikConfig) -> Self {
+        Self::new(config).expect("valid AbbotikConfig base URL")
     }
 }

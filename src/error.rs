@@ -5,7 +5,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum MonkError {
+pub enum AbbotikError {
     #[error("invalid api base url: {0}")]
     InvalidBaseUrl(String),
 
@@ -67,10 +67,10 @@ impl ServerErrorEnvelope {
     }
 }
 
-impl MonkError {
+impl AbbotikError {
     pub fn http_message(&self) -> Option<&str> {
         match self {
-            MonkError::Http { message, .. } => Some(message.as_str()),
+            AbbotikError::Http { message, .. } => Some(message.as_str()),
             _ => None,
         }
     }

@@ -1,12 +1,12 @@
 [package]
-name = "monk-cli"
+name = "abbotik-cli"
 version = "0.3.0"
 edition = "2021"
 license = "MIT"
-description = "Rust CLI for the Monk API"
+description = "Rust CLI for the Abbotik API"
 
 [[bin]]
-name = "monk"
+name = "abbot"
 path = "src/main.rs"
 
 [dependencies]

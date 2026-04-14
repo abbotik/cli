@@ -1,7 +1,7 @@
-# Monk CLI
+# Abbot CLI
 
-`monk` is the command-line client for the Monk API.
-By default it talks to the public API at `https://monk-api.com`.
+`abbot` is the command-line client for the Abbotik API.
+By default it talks to the public API at `https://api.abbotik.com`.
 
 It is organized as a command tree with a small set of root surfaces and a
 larger set of resource-specific branches:
@@ -20,11 +20,11 @@ larger set of resource-specific branches:
 
 For first-time use, the shortest onboarding path is usually:
 
-1. `monk auth register --tenant <tenant> --username <user> --email <email> --password <password>`
-2. `monk auth login --tenant <tenant> --username <user> --password <password>` on later runs or other machines
-3. `monk public llms` or `monk docs root`
-4. `monk describe list` or `monk data list <model>`
-5. `monk health`
+1. `abbot auth register --tenant <tenant> --username <user> --email <email> --password <password>`
+2. `abbot auth login --tenant <tenant> --username <user> --password <password>` on later runs or other machines
+3. `abbot public llms` or `abbot docs root`
+4. `abbot describe list` or `abbot data list <model>`
+5. `abbot health`
 
 The CLI prefers structured output and explicit subcommands so it can be driven by
 scripts or agents without guessing hidden state.

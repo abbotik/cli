@@ -7,9 +7,9 @@ state on the current machine.
 
 Typical onboarding flow:
 
-1. `monk auth register --tenant <tenant> --username <user> --email <email> --password <password>`
-2. `monk auth login --tenant <tenant> --username <user> --password <password>` on later runs or other machines
-3. continue with `monk public llms`, `monk describe list`, or `monk data list <model>`
+1. `abbot auth register --tenant <tenant> --username <user> --email <email> --password <password>`
+2. `abbot auth login --tenant <tenant> --username <user> --password <password>` on later runs or other machines
+3. continue with `abbot public llms`, `abbot describe list`, or `abbot data list <model>`
 
 The server no longer returns a JWT directly from `/auth/register`, so this
 command immediately performs `/auth/login` after successful registration and

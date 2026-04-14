@@ -3,7 +3,7 @@
 The root command splits into focused branches instead of flattening everything
 into one long list.
 
-If you are new to Monk, start with `monk auth register` to create a tenant and
+If you are new to Abbotik, start with `abbot auth register` to create a tenant and
 local session. The CLI now follows registration with login because the server no
 longer mints a JWT directly from `/auth/register`.
 

@@ -5,7 +5,7 @@ key.
 
 Common use:
 
-- `monk auth challenge --tenant acme --fingerprint fp_1234abcd`
-- `monk auth challenge --tenant acme --key-id <uuid>`
+- `abbot auth challenge --tenant acme --fingerprint fp_1234abcd`
+- `abbot auth challenge --tenant acme --key-id <uuid>`
 
-Use `monk auth verify` after signing the returned nonce.
+Use `abbot auth verify` after signing the returned nonce.

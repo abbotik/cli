@@ -3,6 +3,21 @@
 version = 4
 
 [[package]]
+name = "abbotik-cli"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dirs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -558,21 +573,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "monk-cli"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "clap",
- "dirs",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "url",
 ]
 
 [[package]]

@@ -1,15 +1,15 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use monk_cli::{
+use abbotik_cli::{
     api::{ApiClient, DissolveConfirmRequest, DissolveRequest, LoginRequest, RegisterRequest},
-    config::MonkConfig,
-    error::MonkError,
+    config::AbbotikConfig,
+    error::AbbotikError,
 };
 use reqwest::StatusCode;
 
 fn live_client() -> ApiClient {
-    ApiClient::new(MonkConfig::new("https://monk-api.com"))
-        .expect("valid Monk API base url should construct client")
+    ApiClient::new(AbbotikConfig::new("https://api.abbotik.com"))
+        .expect("valid Abbotik API base url should construct client")
 }
 
 fn live_identity() -> (String, String, String, String) {
@@ -26,10 +26,10 @@ fn live_identity() -> (String, String, String, String) {
 }
 
 #[tokio::test]
-#[ignore = "uses the live Monk API"]
+#[ignore = "uses the live Abbotik API"]
 async fn dissolve_flow_registers_confirms_and_blocks_login() {
-    if std::env::var_os("MONK_LIVE_API").is_none() {
-        eprintln!("set MONK_LIVE_API=1 to run this live test");
+    if std::env::var_os("ABBOTIK_LIVE_API").is_none() {
+        eprintln!("set ABBOTIK_LIVE_API=1 to run this live test");
         return;
     }
 
@@ -88,7 +88,7 @@ async fn dissolve_flow_registers_confirms_and_blocks_login() {
         .expect_err("login should fail after dissolution");
 
     match login_err {
-        MonkError::Http { status, .. } => assert_eq!(status, StatusCode::UNAUTHORIZED),
+        AbbotikError::Http { status, .. } => assert_eq!(status, StatusCode::UNAUTHORIZED),
         other => panic!("expected HTTP unauthorized error, got {other:?}"),
     }
 }

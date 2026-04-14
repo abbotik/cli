@@ -7,6 +7,6 @@ summary values.
 
 Common uses:
 
-- `monk stat get users 123`
+- `abbot stat get users 123`
 
 Use `--help` on a subcommand for the next level down.
