@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::cli::{AuthSubcommand, AuthTokenSubcommand, Cli, Command, KeysSubcommand};
+use crate::cli::{AuthSubcommand, AuthTokenSubcommand, Cli, Command, DataSubcommand, KeysSubcommand};
 
 #[test]
 fn parses_auth_token_get_set_clear() {
@@ -90,6 +90,23 @@ fn parses_machine_auth_commands() {
             other => panic!("expected verify command, got {other:?}"),
         },
         other => panic!("expected auth command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_data_list_with_limit() {
+    let cli = Cli::try_parse_from(["abbot", "data", "--limit", "5", "list", "rooms"])
+        .expect("data list with limit should parse");
+
+    match cli.command {
+        Command::Data(data) => {
+            assert_eq!(data.options.limit, Some(5));
+            match data.command {
+                DataSubcommand::List(arg) => assert_eq!(arg.model, "rooms"),
+                other => panic!("expected data list command, got {other:?}"),
+            }
+        }
+        other => panic!("expected data command, got {other:?}"),
     }
 }
 

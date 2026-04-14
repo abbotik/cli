@@ -17,6 +17,9 @@ pub fn query_pairs(options: &DataOptions) -> Vec<(String, String)> {
     if let Some(where_filter) = &options.r#where {
         query.push(("where".to_string(), where_filter.clone()));
     }
+    if let Some(limit) = options.limit {
+        query.push(("limit".to_string(), limit.to_string()));
+    }
     if let Some(stat) = options.stat {
         query.push(("stat".to_string(), stat.to_string()));
     }
@@ -30,4 +33,21 @@ pub fn query_pairs(options: &DataOptions) -> Vec<(String, String)> {
         query.push(("upsert".to_string(), "true".to_string()));
     }
     query
+}
+
+#[cfg(test)]
+mod tests {
+    use super::query_pairs;
+    use crate::cli::DataOptions;
+
+    #[test]
+    fn includes_limit_when_present() {
+        let options = DataOptions {
+            limit: Some(10),
+            ..DataOptions::default()
+        };
+
+        let query = query_pairs(&options);
+        assert!(query.contains(&("limit".to_string(), "10".to_string())));
+    }
 }

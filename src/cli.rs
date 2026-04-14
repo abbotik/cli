@@ -423,6 +423,10 @@ pub struct DataOptions {
     #[arg(long = "where")]
     pub r#where: Option<String>,
 
+    /// Limit the number of returned records
+    #[arg(long)]
+    pub limit: Option<u32>,
+
     /// Exclude timestamp fields
     #[arg(long, value_parser = clap::builder::BoolishValueParser::new())]
     pub stat: Option<bool>,
