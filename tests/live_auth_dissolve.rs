@@ -40,14 +40,24 @@ async fn dissolve_flow_registers_confirms_and_blocks_login() {
         .auth_register(&RegisterRequest {
             tenant: Some(tenant.clone()),
             username: Some(username.clone()),
+            invite_code: None,
             email: Some(email),
             password: Some(password.clone()),
         })
         .await
         .expect("register should succeed");
 
-    assert_eq!(register.data.as_ref().map(|data| data.tenant.as_str()), Some(tenant.as_str()));
-    assert_eq!(register.data.as_ref().map(|data| data.username.as_str()), Some(username.as_str()));
+    assert_eq!(
+        register.data.as_ref().map(|data| data.tenant.as_str()),
+        Some(tenant.as_str())
+    );
+    assert_eq!(
+        register
+            .data
+            .as_ref()
+            .and_then(|data| data.username.as_deref()),
+        Some(username.as_str())
+    );
 
     let dissolve = client
         .auth_dissolve(&DissolveRequest {
@@ -63,17 +73,24 @@ async fn dissolve_flow_registers_confirms_and_blocks_login() {
         .as_ref()
         .map(|data| data.confirmation_token.clone())
         .expect("dissolve should return confirmation token");
-    assert_eq!(dissolve.data.as_ref().map(|data| data.expires_in), Some(300));
+    assert_eq!(
+        dissolve.data.as_ref().map(|data| data.expires_in),
+        Some(300)
+    );
 
     let confirm = client
-        .auth_dissolve_confirm(&DissolveConfirmRequest {
-            confirmation_token,
-        })
+        .auth_dissolve_confirm(&DissolveConfirmRequest { confirmation_token })
         .await
         .expect("dissolve confirm should succeed");
 
-    assert_eq!(confirm.data.as_ref().map(|data| data.tenant.as_str()), Some(tenant.as_str()));
-    assert_eq!(confirm.data.as_ref().map(|data| data.username.as_str()), Some(username.as_str()));
+    assert_eq!(
+        confirm.data.as_ref().map(|data| data.tenant.as_str()),
+        Some(tenant.as_str())
+    );
+    assert_eq!(
+        confirm.data.as_ref().map(|data| data.username.as_str()),
+        Some(username.as_str())
+    );
     assert_eq!(confirm.data.as_ref().map(|data| data.dissolved), Some(true));
 
     let login_err = client

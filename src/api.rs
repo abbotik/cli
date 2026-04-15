@@ -38,6 +38,7 @@ pub struct LoginRequest {
 pub struct RegisterRequest {
     pub tenant: Option<String>,
     pub username: Option<String>,
+    pub invite_code: Option<String>,
     pub email: Option<String>,
     pub password: Option<String>,
 }
@@ -69,10 +70,14 @@ pub struct LoginData {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RegisterData {
-    pub tenant_id: String,
     pub tenant: String,
-    pub username: String,
-    pub status: String,
+    pub tenant_id: String,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub user: Option<ProvisionUserData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -85,9 +90,31 @@ pub struct RefreshData {
 pub struct ProvisionRequest {
     pub tenant: Option<String>,
     pub username: Option<String>,
+    pub invite_code: Option<String>,
     pub public_key: Option<String>,
     pub algorithm: Option<String>,
     pub key_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InviteRequest {
+    pub username: Option<String>,
+    pub invite_type: Option<String>,
+    pub access: Option<String>,
+    pub access_read: Option<Vec<String>>,
+    pub access_edit: Option<Vec<String>>,
+    pub access_full: Option<Vec<String>>,
+    pub expires_in: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct InviteData {
+    pub invite_id: String,
+    pub username: String,
+    pub invite_type: String,
+    pub access: String,
+    pub code: String,
+    pub expires_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -288,7 +315,11 @@ impl ApiClient {
             .await
     }
 
-    pub async fn delete_json_with_query<Q, T>(&self, path: &str, query: &Q) -> Result<T, AbbotikError>
+    pub async fn delete_json_with_query<Q, T>(
+        &self,
+        path: &str,
+        query: &Q,
+    ) -> Result<T, AbbotikError>
     where
         Q: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -305,7 +336,11 @@ impl ApiClient {
         self.request_json(Method::POST, path, Some(body)).await
     }
 
-    pub async fn post_json_without_auth<B, T>(&self, path: &str, body: &B) -> Result<T, AbbotikError>
+    pub async fn post_json_without_auth<B, T>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<T, AbbotikError>
     where
         B: Serialize + ?Sized,
         T: DeserializeOwned,
@@ -428,11 +463,14 @@ impl ApiClient {
             request
         };
 
-        let response = request.send().await.map_err(|source| AbbotikError::Request {
-            method: method.clone(),
-            url: url.to_string(),
-            source,
-        })?;
+        let response = request
+            .send()
+            .await
+            .map_err(|source| AbbotikError::Request {
+                method: method.clone(),
+                url: url.to_string(),
+                source,
+            })?;
 
         self.parse_response(method, url, response).await
     }
@@ -462,11 +500,14 @@ impl ApiClient {
             request
         };
 
-        let response = request.send().await.map_err(|source| AbbotikError::Request {
-            method: method.clone(),
-            url: url.to_string(),
-            source,
-        })?;
+        let response = request
+            .send()
+            .await
+            .map_err(|source| AbbotikError::Request {
+                method: method.clone(),
+                url: url.to_string(),
+                source,
+            })?;
 
         self.parse_response(method, url, response).await
     }
@@ -508,18 +549,24 @@ impl ApiClient {
             request
         };
 
-        let response = request.send().await.map_err(|source| AbbotikError::Request {
-            method: method.clone(),
-            url: url.to_string(),
-            source,
-        })?;
+        let response = request
+            .send()
+            .await
+            .map_err(|source| AbbotikError::Request {
+                method: method.clone(),
+                url: url.to_string(),
+                source,
+            })?;
 
         let status = response.status();
-        let text = response.text().await.map_err(|source| AbbotikError::Request {
-            method: method.clone(),
-            url: url.to_string(),
-            source,
-        })?;
+        let text = response
+            .text()
+            .await
+            .map_err(|source| AbbotikError::Request {
+                method: method.clone(),
+                url: url.to_string(),
+                source,
+            })?;
 
         if status.is_success() {
             Ok(text)
@@ -544,7 +591,12 @@ impl ApiClient {
         &self,
         request: &RegisterRequest,
     ) -> Result<ApiEnvelope<RegisterData>, AbbotikError> {
-        self.post_json_without_auth("/auth/register", request).await
+        let path = if request.invite_code.is_some() {
+            "/auth/register/user"
+        } else {
+            "/auth/register"
+        };
+        self.post_json_without_auth(path, request).await
     }
 
     pub async fn auth_refresh(
@@ -558,14 +610,27 @@ impl ApiClient {
         &self,
         request: &ProvisionRequest,
     ) -> Result<ApiEnvelope<ProvisionData>, AbbotikError> {
-        self.post_json_without_auth("/auth/provision", request).await
+        let path = if request.invite_code.is_some() {
+            "/auth/provision/user"
+        } else {
+            "/auth/provision"
+        };
+        self.post_json_without_auth(path, request).await
+    }
+
+    pub async fn user_invite(
+        &self,
+        request: &InviteRequest,
+    ) -> Result<ApiEnvelope<InviteData>, AbbotikError> {
+        self.post_json("/api/user/invite", request).await
     }
 
     pub async fn auth_challenge(
         &self,
         request: &ChallengeRequest,
     ) -> Result<ApiEnvelope<ChallengeData>, AbbotikError> {
-        self.post_json_without_auth("/auth/challenge", request).await
+        self.post_json_without_auth("/auth/challenge", request)
+            .await
     }
 
     pub async fn auth_verify(
@@ -586,7 +651,8 @@ impl ApiClient {
         &self,
         request: &DissolveConfirmRequest,
     ) -> Result<ApiEnvelope<DissolveConfirmData>, AbbotikError> {
-        self.post_json_without_auth("/auth/dissolve/confirm", request).await
+        self.post_json_without_auth("/auth/dissolve/confirm", request)
+            .await
     }
 
     pub async fn auth_sudo(

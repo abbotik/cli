@@ -55,6 +55,13 @@ For a new user, the intended first steps are:
 `abbot auth register` now follows the API contract change by registering first and
 then immediately completing `/auth/login` so the CLI still lands with a saved JWT.
 
+For users joining an existing tenant, the invite flow is:
+
+1. Existing root or full user runs `abbot user invite --username <user> --invite-type human|machine`
+2. Human invitees run `abbot auth register --tenant <tenant> --username <user> --invite-code <code> --email <email> --password <password>`
+3. Machine invitees run `abbot auth provision --tenant <tenant> --username <user> --invite-code <code> --public-key @~/.config/abbot/abbotik.pub`
+4. Invited humans can later use `abbot auth login`; invited machines finish with `abbot auth verify` or `abbot auth machine connect`
+
 Machine clients should use:
 
 1. `abbot auth machine connect --tenant <tenant> --username <user> --key ~/.config/abbot/abbotik.key`

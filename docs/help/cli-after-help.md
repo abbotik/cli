@@ -7,11 +7,14 @@ Examples:
 ```bash
 abbot auth register --tenant acme --username alice --email alice@example.com --password secret-pass
 abbot auth login --tenant acme --username alice --password secret-pass
+abbot user invite --username alice --invite-type human
+abbot auth register --tenant acme --username alice --invite-code <code> --email alice@example.com --password secret-pass
 abbot public llms
 abbot describe list
 abbot data list users
 abbot data get users 123
 abbot auth provision --tenant acme --username machine_root --public-key @machine.pub
+abbot auth provision --tenant acme --username builder_2 --invite-code <code> --public-key @machine.pub
 abbot auth verify --tenant acme --challenge-id <id> --signature @signature.txt
 abbot keys list
 abbot find query users --where '{"active":true}'
@@ -28,6 +31,14 @@ abbot public llms
 abbot health
 abbot describe list
 abbot data list <model>
+```
+
+Useful onboarding sequence for invited tenant users:
+
+```bash
+abbot user invite --username alice --invite-type human
+abbot auth register --tenant acme --username alice --invite-code <code> --email alice@example.com --password secret-pass
+abbot auth login --tenant acme --username alice --password secret-pass
 ```
 
 Machine-readable output is available with `--format json`:

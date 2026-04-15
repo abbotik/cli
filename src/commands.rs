@@ -15,16 +15,16 @@ use serde_json::{json, Map, Value};
 
 use crate::{
     api::{
-        ApiClient, ChallengeRequest, DissolveConfirmRequest, DissolveRequest, LoginRequest,
-        ProvisionRequest, RefreshRequest, RegisterRequest, VerifyData, VerifyRequest,
+        ApiClient, ChallengeRequest, DissolveConfirmRequest, DissolveRequest, InviteRequest,
+        LoginRequest, ProvisionRequest, RefreshRequest, RegisterRequest, VerifyData, VerifyRequest,
     },
     cli::{
         AclsCommand, AggregateCommand, AggregateOptions, AppCommand, AuthCommand, BulkCommand,
         BulkOptions, Cli, Command, CronCommand, DataCommand, DescribeCommand, DocsCommand,
         FindCommand, FindOptions, FsCommand, FsOptions, KeysCommand, KeysCreateCommand,
         KeysRotateCommand, KeysSubcommand, PublicCommand, StatCommand, TrackedCommand,
-        TrashedCommand, UserCommand, UserCreateCommand, UserListCommand, UserPasswordCommand,
-        UserSubcommand,
+        TrashedCommand, UserCommand, UserCreateCommand, UserInviteCommand, UserListCommand,
+        UserPasswordCommand, UserSubcommand,
     },
     config::AbbotikConfig,
     data,
@@ -117,20 +117,24 @@ fn source_path_string(source: Option<&str>) -> anyhow::Result<Option<String>> {
 
 fn sign_machine_nonce(private_key_path: &str, nonce: &str) -> anyhow::Result<String> {
     let pem = fs::read_to_string(private_key_path)?;
-    let signing_key = SigningKey::from_pkcs8_pem(&pem)
-        .map_err(|error| anyhow::anyhow!("failed to decode Ed25519 private key at {private_key_path}: {error}"))?;
+    let signing_key = SigningKey::from_pkcs8_pem(&pem).map_err(|error| {
+        anyhow::anyhow!("failed to decode Ed25519 private key at {private_key_path}: {error}")
+    })?;
     let signature = signing_key.sign(nonce.as_bytes());
     Ok(URL_SAFE_NO_PAD.encode(signature.to_bytes()))
 }
 
 fn derive_public_key_pem(private_key_path: &str) -> anyhow::Result<String> {
     let pem = fs::read_to_string(private_key_path)?;
-    let signing_key = SigningKey::from_pkcs8_pem(&pem)
-        .map_err(|error| anyhow::anyhow!("failed to decode Ed25519 private key at {private_key_path}: {error}"))?;
+    let signing_key = SigningKey::from_pkcs8_pem(&pem).map_err(|error| {
+        anyhow::anyhow!("failed to decode Ed25519 private key at {private_key_path}: {error}")
+    })?;
     signing_key
         .verifying_key()
         .to_public_key_pem(Default::default())
-        .map_err(|error| anyhow::anyhow!("failed to encode Ed25519 public key from {private_key_path}: {error}"))
+        .map_err(|error| {
+            anyhow::anyhow!("failed to encode Ed25519 public key from {private_key_path}: {error}")
+        })
 }
 
 fn update_machine_auth_from_verify_response(
@@ -173,13 +177,12 @@ async fn refresh_machine_auth(
     save_path: Option<&Path>,
 ) -> anyhow::Result<Value> {
     let machine_auth = config.machine_auth.clone().unwrap_or_default();
-    let tenant = claims
-        .tenant
-        .or(machine_auth.tenant)
-        .ok_or_else(|| anyhow::anyhow!("machine refresh requires a tenant in the saved token or config"))?;
-    let private_key_path = machine_auth
-        .private_key_path
-        .ok_or_else(|| anyhow::anyhow!("machine refresh requires a saved private key path in local config"))?;
+    let tenant = claims.tenant.or(machine_auth.tenant).ok_or_else(|| {
+        anyhow::anyhow!("machine refresh requires a tenant in the saved token or config")
+    })?;
+    let private_key_path = machine_auth.private_key_path.ok_or_else(|| {
+        anyhow::anyhow!("machine refresh requires a saved private key path in local config")
+    })?;
     let key_id = claims.key_id.or(machine_auth.key_id);
     let fingerprint = claims.key_fingerprint.or(machine_auth.key_fingerprint);
 
@@ -215,7 +218,13 @@ async fn refresh_machine_auth(
         .ok_or_else(|| anyhow::anyhow!("verify response did not include a bearer token"))?;
 
     config.set_token(next_token.clone());
-    update_machine_auth_from_verify_response(config, verify.data.as_ref(), &next_token, None, None)?;
+    update_machine_auth_from_verify_response(
+        config,
+        verify.data.as_ref(),
+        &next_token,
+        None,
+        None,
+    )?;
     save_config(config, save_path)?;
 
     Ok(json!({
@@ -242,7 +251,13 @@ fn save_machine_verify_result(
     save_path: Option<&Path>,
 ) -> anyhow::Result<()> {
     config.set_token(token.to_string());
-    update_machine_auth_from_verify_response(config, verify_data, token, public_key_path, private_key_path)?;
+    update_machine_auth_from_verify_response(
+        config,
+        verify_data,
+        token,
+        public_key_path,
+        private_key_path,
+    )?;
     save_config(config, save_path)?;
     Ok(())
 }
@@ -260,10 +275,21 @@ fn machine_key_paths(
     ))
 }
 
-fn machine_public_key_pem(public_key_source: Option<&str>, private_key_path: &str) -> anyhow::Result<String> {
+fn machine_public_key_pem(
+    public_key_source: Option<&str>,
+    private_key_path: &str,
+) -> anyhow::Result<String> {
     match read_secret_source_option(public_key_source)? {
         Some(public_key) => Ok(public_key),
         None => derive_public_key_pem(private_key_path),
+    }
+}
+
+fn vec_or_none(values: Vec<String>) -> Option<Vec<String>> {
+    if values.is_empty() {
+        None
+    } else {
+        Some(values)
     }
 }
 
@@ -273,7 +299,8 @@ async fn machine_connect(
     client: &ApiClient,
     save_path: Option<&Path>,
 ) -> anyhow::Result<()> {
-    let (private_key_path, public_key_path) = machine_key_paths(args.key.as_deref(), args.public_key.as_deref())?;
+    let (private_key_path, public_key_path) =
+        machine_key_paths(args.key.as_deref(), args.public_key.as_deref())?;
     let token_claims = config
         .token()
         .and_then(|token| decode_token_claims(token).ok())
@@ -282,9 +309,16 @@ async fn machine_connect(
     let tenant = args
         .tenant
         .clone()
-        .or_else(|| config.machine_auth.as_ref().and_then(|machine| machine.tenant.clone()))
+        .or_else(|| {
+            config
+                .machine_auth
+                .as_ref()
+                .and_then(|machine| machine.tenant.clone())
+        })
         .or(token_claims.tenant.clone())
-        .ok_or_else(|| anyhow::anyhow!("machine connect requires --tenant or a saved machine tenant"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("machine connect requires --tenant or a saved machine tenant")
+        })?;
 
     let machine_auth = config
         .machine_auth
@@ -297,7 +331,7 @@ async fn machine_connect(
         .clone()
         .or(token_claims.key_fingerprint.clone());
 
-    if key_id.is_some() || fingerprint.is_some() {
+    if args.invite_code.is_none() && (key_id.is_some() || fingerprint.is_some()) {
         let challenge = client
             .auth_challenge(&ChallengeRequest {
                 tenant: Some(tenant.clone()),
@@ -339,15 +373,17 @@ async fn machine_connect(
         return Ok(());
     }
 
-    let username = args
-        .username
-        .clone()
-        .ok_or_else(|| anyhow::anyhow!("machine connect requires --username when no saved machine key metadata exists"))?;
+    let username = args.username.clone().ok_or_else(|| {
+        anyhow::anyhow!(
+            "machine connect requires --username when no saved machine key metadata exists"
+        )
+    })?;
     let public_key = machine_public_key_pem(args.public_key.as_deref(), &private_key_path)?;
     let provision = client
         .auth_provision(&ProvisionRequest {
             tenant: Some(tenant.clone()),
             username: Some(username),
+            invite_code: args.invite_code.clone(),
             public_key: Some(public_key),
             algorithm: args.algorithm,
             key_name: args.key_name,
@@ -422,15 +458,29 @@ async fn auth(
                 .auth_register(&RegisterRequest {
                     tenant: args.tenant,
                     username: args.username,
+                    invite_code: args.invite_code,
                     email: args.email,
                     password: password.clone(),
                 })
                 .await?;
+            let register_username = register_response
+                .data
+                .as_ref()
+                .and_then(|data| data.user.as_ref().map(|user| user.username.clone()))
+                .or_else(|| {
+                    register_response
+                        .data
+                        .as_ref()
+                        .and_then(|data| data.username.clone())
+                });
             let login_response = client
                 .auth_login(&LoginRequest {
-                    tenant: register_response.data.as_ref().map(|data| data.tenant.clone()),
+                    tenant: register_response
+                        .data
+                        .as_ref()
+                        .map(|data| data.tenant.clone()),
                     tenant_id: None,
-                    username: register_response.data.as_ref().map(|data| data.username.clone()),
+                    username: register_username,
                     password,
                     format: None,
                 })
@@ -457,7 +507,8 @@ async fn auth(
                 }
                 _ => {
                     let response = client.auth_refresh(&RefreshRequest { token }).await?;
-                    if let Some(next_token) = response.data.as_ref().map(|data| data.token.clone()) {
+                    if let Some(next_token) = response.data.as_ref().map(|data| data.token.clone())
+                    {
                         config.set_token(next_token);
                         save_config(config, save_path)?;
                     }
@@ -473,6 +524,7 @@ async fn auth(
                 .auth_provision(&ProvisionRequest {
                     tenant: args.tenant,
                     username: args.username,
+                    invite_code: args.invite_code,
                     public_key,
                     algorithm: args.algorithm,
                     key_name: args.key_name,
@@ -546,7 +598,9 @@ async fn auth(
         crate::cli::AuthSubcommand::Dissolve(command) => {
             auth_dissolve(command, client).await?;
         }
-        crate::cli::AuthSubcommand::Token(command) => auth_token(command, config, save_path).await?,
+        crate::cli::AuthSubcommand::Token(command) => {
+            auth_token(command, config, save_path).await?
+        }
         crate::cli::AuthSubcommand::Tenants => {
             print_json(&client.auth_tenants().await?)?;
         }
@@ -1002,6 +1056,10 @@ async fn user(command: UserCommand, client: &ApiClient) -> anyhow::Result<()> {
             let body = user_create_body(args)?;
             print_json(&client.post_json::<_, Value>("/api/user", &body).await?)?
         }
+        UserSubcommand::Invite(args) => {
+            let request = user_invite_request(args);
+            print_json(&client.user_invite(&request).await?)?;
+        }
         UserSubcommand::Get(arg) => print_json(
             &client
                 .get_json::<Value>(&format!("/api/user/{}", arg.id))
@@ -1063,7 +1121,11 @@ async fn keys(command: KeysCommand, client: &ApiClient) -> anyhow::Result<()> {
         }
         KeysSubcommand::Rotate(args) => {
             let body = keys_rotate_body(args)?;
-            print_json(&client.post_json::<_, Value>("/api/keys/rotate", &body).await?)?;
+            print_json(
+                &client
+                    .post_json::<_, Value>("/api/keys/rotate", &body)
+                    .await?,
+            )?;
         }
         KeysSubcommand::Delete(arg) => print_json(
             &client
@@ -1174,7 +1236,10 @@ fn print_text(value: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn auth_dissolve(command: crate::cli::AuthDissolveCommand, client: &ApiClient) -> anyhow::Result<()> {
+async fn auth_dissolve(
+    command: crate::cli::AuthDissolveCommand,
+    client: &ApiClient,
+) -> anyhow::Result<()> {
     match command.command {
         crate::cli::AuthDissolveSubcommand::Request(args) => {
             let password = read_secret_source_option(args.password.as_deref())?;
@@ -1274,6 +1339,18 @@ fn read_json_source(source: &str) -> anyhow::Result<Value> {
     }
 
     Ok(serde_json::from_str(&raw)?)
+}
+
+fn user_invite_request(args: UserInviteCommand) -> InviteRequest {
+    InviteRequest {
+        username: args.username,
+        invite_type: args.invite_type,
+        access: args.access,
+        access_read: vec_or_none(args.access_read),
+        access_edit: vec_or_none(args.access_edit),
+        access_full: vec_or_none(args.access_full),
+        expires_in: args.expires_in,
+    }
 }
 
 fn fs_body_text(options: &FsOptions) -> anyhow::Result<String> {

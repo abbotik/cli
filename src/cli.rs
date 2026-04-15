@@ -12,16 +12,20 @@ const AUTH_PROVISION_AFTER_HELP: &str = include_str!("../docs/help/auth-provisio
 const AUTH_CHALLENGE_AFTER_HELP: &str = include_str!("../docs/help/auth-challenge-after-help.md");
 const AUTH_VERIFY_AFTER_HELP: &str = include_str!("../docs/help/auth-verify-after-help.md");
 const AUTH_MACHINE_AFTER_HELP: &str = include_str!("../docs/help/auth-machine-after-help.md");
-const AUTH_MACHINE_CONNECT_AFTER_HELP: &str = include_str!("../docs/help/auth-machine-connect-after-help.md");
+const AUTH_MACHINE_CONNECT_AFTER_HELP: &str =
+    include_str!("../docs/help/auth-machine-connect-after-help.md");
 const AUTH_DISSOLVE_AFTER_HELP: &str = include_str!("../docs/help/auth-dissolve-after-help.md");
-const AUTH_DISSOLVE_CONFIRM_AFTER_HELP: &str = include_str!("../docs/help/auth-dissolve-confirm-after-help.md");
+const AUTH_DISSOLVE_CONFIRM_AFTER_HELP: &str =
+    include_str!("../docs/help/auth-dissolve-confirm-after-help.md");
 const AUTH_TOKEN_AFTER_HELP: &str = include_str!("../docs/help/auth-token-after-help.md");
 const DOCS_AFTER_HELP: &str = include_str!("../docs/help/docs-after-help.md");
 const DESCRIBE_AFTER_HELP: &str = include_str!("../docs/help/describe-after-help.md");
 const DESCRIBE_FIELDS_AFTER_HELP: &str = include_str!("../docs/help/describe-fields-after-help.md");
 const DATA_AFTER_HELP: &str = include_str!("../docs/help/data-after-help.md");
-const DATA_RELATIONSHIP_AFTER_HELP: &str = include_str!("../docs/help/data-relationship-after-help.md");
-const DATA_RELATIONSHIP_CHILD_AFTER_HELP: &str = include_str!("../docs/help/data-relationship-child-after-help.md");
+const DATA_RELATIONSHIP_AFTER_HELP: &str =
+    include_str!("../docs/help/data-relationship-after-help.md");
+const DATA_RELATIONSHIP_CHILD_AFTER_HELP: &str =
+    include_str!("../docs/help/data-relationship-child-after-help.md");
 const FIND_AFTER_HELP: &str = include_str!("../docs/help/find-after-help.md");
 const AGGREGATE_AFTER_HELP: &str = include_str!("../docs/help/aggregate-after-help.md");
 const BULK_AFTER_HELP: &str = include_str!("../docs/help/bulk-after-help.md");
@@ -36,6 +40,7 @@ const USER_DELETE_AFTER_HELP: &str = include_str!("../docs/help/user-delete-afte
 const USER_PASSWORD_AFTER_HELP: &str = include_str!("../docs/help/user-password-after-help.md");
 const USER_SUDO_AFTER_HELP: &str = include_str!("../docs/help/user-sudo-after-help.md");
 const USER_FAKE_AFTER_HELP: &str = include_str!("../docs/help/user-fake-after-help.md");
+const USER_INVITE_AFTER_HELP: &str = include_str!("../docs/help/user-invite-after-help.md");
 const KEYS_AFTER_HELP: &str = include_str!("../docs/help/keys-after-help.md");
 const KEYS_CREATE_AFTER_HELP: &str = include_str!("../docs/help/keys-create-after-help.md");
 const KEYS_ROTATE_AFTER_HELP: &str = include_str!("../docs/help/keys-rotate-after-help.md");
@@ -198,6 +203,10 @@ pub struct AuthRegisterCommand {
     #[arg(long)]
     pub username: Option<String>,
 
+    /// One-time invite code for joining an existing tenant user
+    #[arg(long = "invite-code")]
+    pub invite_code: Option<String>,
+
     /// Email address for Auth0 user provisioning
     #[arg(long)]
     pub email: Option<String>,
@@ -225,6 +234,10 @@ pub struct AuthProvisionCommand {
     /// Canonical username for the bootstrap root user
     #[arg(long)]
     pub username: Option<String>,
+
+    /// One-time invite code for joining an existing tenant machine user
+    #[arg(long = "invite-code")]
+    pub invite_code: Option<String>,
 
     /// Public key PEM, use - for stdin or @<path> for a file
     #[arg(long = "public-key")]
@@ -311,6 +324,10 @@ pub struct AuthMachineConnectCommand {
     /// Canonical username for first-time machine bootstrap
     #[arg(long)]
     pub username: Option<String>,
+
+    /// One-time invite code for joining an existing tenant machine user
+    #[arg(long = "invite-code")]
+    pub invite_code: Option<String>,
 
     /// Path to an Ed25519 private key PEM; plain paths and @<path> both work
     #[arg(long = "key")]
@@ -769,6 +786,7 @@ pub enum UserSubcommand {
     Me,
     List(UserListCommand),
     Create(UserCreateCommand),
+    Invite(UserInviteCommand),
     Get(UserIdArg),
     Update(UserIdArg),
     Delete(UserDeleteCommand),
@@ -807,6 +825,38 @@ pub struct UserCreateCommand {
     /// Optional access level
     #[arg(long)]
     pub access: Option<String>,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = USER_INVITE_AFTER_HELP)]
+pub struct UserInviteCommand {
+    /// Canonical username to reserve for the invited user
+    #[arg(long)]
+    pub username: Option<String>,
+
+    /// Invite type: human, machine, or either
+    #[arg(long = "invite-type")]
+    pub invite_type: Option<String>,
+
+    /// Tenant-local access level for the invited user
+    #[arg(long)]
+    pub access: Option<String>,
+
+    /// Record-level read grants to attach to the invite
+    #[arg(long = "access-read")]
+    pub access_read: Vec<String>,
+
+    /// Record-level edit grants to attach to the invite
+    #[arg(long = "access-edit")]
+    pub access_edit: Vec<String>,
+
+    /// Record-level full grants to attach to the invite
+    #[arg(long = "access-full")]
+    pub access_full: Vec<String>,
+
+    /// Invite lifetime in seconds
+    #[arg(long = "expires-in")]
+    pub expires_in: Option<u64>,
 }
 
 #[derive(Args, Debug)]

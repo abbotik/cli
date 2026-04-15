@@ -7,6 +7,10 @@ If you are new to Abbotik, start with `abbot auth register` to create a tenant a
 local session. The CLI now follows registration with login because the server no
 longer mints a JWT directly from `/auth/register`.
 
+If you are joining an existing tenant, have a root or full user mint a one-time
+invite with `abbot user invite`, then redeem it with `abbot auth register` or
+`abbot auth provision` using `--invite-code`.
+
 Use this rough map when navigating the CLI:
 
 - `public` for root documents and agent-facing discovery

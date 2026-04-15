@@ -83,7 +83,10 @@ impl AbbotikConfig {
 
     pub fn config_path() -> Result<PathBuf, AbbotikError> {
         let home = dirs::home_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
-        Ok(home.join(".config").join(CONFIG_DIR_NAME).join(CONFIG_FILE_NAME))
+        Ok(home
+            .join(".config")
+            .join(CONFIG_DIR_NAME)
+            .join(CONFIG_FILE_NAME))
     }
 
     pub fn load() -> Result<Self, AbbotikError> {
@@ -131,7 +134,8 @@ impl AbbotikConfig {
     }
 
     pub fn machine_auth_mut(&mut self) -> &mut MachineAuthConfig {
-        self.machine_auth.get_or_insert_with(MachineAuthConfig::default)
+        self.machine_auth
+            .get_or_insert_with(MachineAuthConfig::default)
     }
 
     pub fn token(&self) -> Option<&str> {
@@ -218,9 +222,27 @@ mod tests {
         assert_eq!(loaded.base_url, "https://example.com");
         assert_eq!(loaded.token.as_deref(), Some("jwt-one"));
         assert_eq!(loaded.output_format, OutputFormat::Yaml);
-        assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.tenant.as_deref()), Some("acme"));
-        assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.public_key_path.as_deref()), Some("/tmp/machine.pub"));
-        assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.private_key_path.as_deref()), Some("/tmp/machine.key"));
+        assert_eq!(
+            loaded
+                .machine_auth
+                .as_ref()
+                .and_then(|m| m.tenant.as_deref()),
+            Some("acme")
+        );
+        assert_eq!(
+            loaded
+                .machine_auth
+                .as_ref()
+                .and_then(|m| m.public_key_path.as_deref()),
+            Some("/tmp/machine.pub")
+        );
+        assert_eq!(
+            loaded
+                .machine_auth
+                .as_ref()
+                .and_then(|m| m.private_key_path.as_deref()),
+            Some("/tmp/machine.key")
+        );
 
         let _ = std::fs::remove_file(&path);
     }
@@ -242,7 +264,10 @@ mod tests {
         config.machine_auth_mut().private_key_path = Some("/tmp/machine.key".to_string());
 
         assert_eq!(
-            config.machine_auth.as_ref().and_then(|m| m.private_key_path.as_deref()),
+            config
+                .machine_auth
+                .as_ref()
+                .and_then(|m| m.private_key_path.as_deref()),
             Some("/tmp/machine.key")
         );
     }

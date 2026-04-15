@@ -1,13 +1,14 @@
 # User
 
-Manage user accounts, keys, impersonation, and sudo flows.
+Manage user accounts, invites, keys, impersonation, and sudo flows.
 
-This branch covers the current identity, user lists, key creation, and elevated
-operations.
+This branch covers the current identity, invite creation, user lists, key
+creation, and elevated operations.
 
 Common uses:
 
 - `abbot user me`
+- `abbot user invite --username alice --invite-type human`
 - `abbot user list`
 - `abbot user sudo`
 

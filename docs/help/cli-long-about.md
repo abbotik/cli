@@ -26,5 +26,11 @@ For first-time use, the shortest onboarding path is usually:
 4. `abbot describe list` or `abbot data list <model>`
 5. `abbot health`
 
+For existing tenants, the invite path is:
+
+1. `abbot user invite --username <user> --invite-type human|machine`
+2. `abbot auth register --tenant <tenant> --username <user> --invite-code <code> --email <email> --password <password>`
+3. or `abbot auth provision --tenant <tenant> --username <user> --invite-code <code> --public-key @machine.pub`
+
 The CLI prefers structured output and explicit subcommands so it can be driven by
 scripts or agents without guessing hidden state.

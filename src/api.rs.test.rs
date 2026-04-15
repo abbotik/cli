@@ -1,6 +1,7 @@
 use crate::api::{
-    ChallengeData, DissolveConfirmRequest, DissolveData, DissolveRequest, ProvisionData,
-    ProvisionKeyData, ProvisionUserData, RefreshData, RegisterData, VerifyData,
+    ChallengeData, DissolveConfirmRequest, DissolveData, DissolveRequest, InviteData,
+    InviteRequest, ProvisionData, ProvisionKeyData, ProvisionUserData, RefreshData, RegisterData,
+    VerifyData,
 };
 
 #[test]
@@ -38,10 +39,11 @@ fn dissolve_and_refresh_payloads_have_expected_fields() {
 #[test]
 fn register_and_machine_auth_payloads_have_expected_fields() {
     let register = RegisterData {
-        tenant_id: "tenant-1".to_string(),
         tenant: "acme".to_string(),
-        username: "alice".to_string(),
-        status: "pending".to_string(),
+        tenant_id: "tenant-1".to_string(),
+        username: Some("alice".to_string()),
+        status: Some("pending".to_string()),
+        user: None,
     };
     let provision = ProvisionData {
         tenant: "acme".to_string(),
@@ -78,8 +80,36 @@ fn register_and_machine_auth_payloads_have_expected_fields() {
         key_id: "key-1".to_string(),
     };
 
-    assert_eq!(register.status, "pending");
+    assert_eq!(register.status.as_deref(), Some("pending"));
     assert_eq!(provision.key.fingerprint, "fp_1234");
     assert_eq!(challenge.algorithm, "ed25519");
     assert_eq!(verify.key_id, "key-1");
+}
+
+#[test]
+fn invite_payloads_have_expected_fields() {
+    let request = InviteRequest {
+        username: Some("builder_2".to_string()),
+        invite_type: Some("machine".to_string()),
+        access: Some("edit".to_string()),
+        access_read: Some(vec!["rooms".to_string()]),
+        access_edit: None,
+        access_full: None,
+        expires_in: Some(3600),
+    };
+    let data = InviteData {
+        invite_id: "invite-1".to_string(),
+        username: "builder_2".to_string(),
+        invite_type: "machine".to_string(),
+        access: "edit".to_string(),
+        code: "opaque-code".to_string(),
+        expires_at: "2026-04-15T12:00:00Z".to_string(),
+    };
+
+    assert_eq!(request.invite_type.as_deref(), Some("machine"));
+    assert_eq!(
+        request.access_read.unwrap_or_default(),
+        vec!["rooms".to_string()]
+    );
+    assert_eq!(data.code, "opaque-code");
 }

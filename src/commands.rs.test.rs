@@ -1,19 +1,23 @@
 use clap::Parser;
 
-use crate::cli::{AuthSubcommand, AuthTokenSubcommand, Cli, Command, DataSubcommand, KeysSubcommand};
+use crate::cli::{
+    AuthSubcommand, AuthTokenSubcommand, Cli, Command, DataSubcommand, KeysSubcommand,
+};
 
 #[test]
 fn parses_auth_token_get_set_clear() {
     let get = Cli::try_parse_from(["abbot", "auth", "token", "get"]).expect("get should parse");
     assert_auth_token_subcommand(get, AuthTokenSubcommand::Get);
 
-    let clear = Cli::try_parse_from(["abbot", "auth", "token", "clear"]).expect("clear should parse");
+    let clear =
+        Cli::try_parse_from(["abbot", "auth", "token", "clear"]).expect("clear should parse");
     assert_auth_token_subcommand(clear, AuthTokenSubcommand::Clear);
 }
 
 #[test]
 fn parses_auth_token_set_with_positional_token() {
-    let cli = Cli::try_parse_from(["abbot", "auth", "token", "set", "jwt-test-value"]).expect("set should parse");
+    let cli = Cli::try_parse_from(["abbot", "auth", "token", "set", "jwt-test-value"])
+        .expect("set should parse");
 
     match cli.command {
         Command::Auth(auth) => match auth.command {
@@ -90,6 +94,32 @@ fn parses_machine_auth_commands() {
         other => panic!("expected auth command, got {other:?}"),
     }
 
+    let invite_provision = Cli::try_parse_from([
+        "abbot",
+        "auth",
+        "provision",
+        "--tenant",
+        "acme",
+        "--username",
+        "builder_2",
+        "--invite-code",
+        "invite-code-1",
+        "--public-key",
+        "@machine.pub",
+    ])
+    .expect("invite provision should parse");
+
+    match invite_provision.command {
+        Command::Auth(auth) => match auth.command {
+            AuthSubcommand::Provision(args) => {
+                assert_eq!(args.invite_code.as_deref(), Some("invite-code-1"));
+                assert_eq!(args.username.as_deref(), Some("builder_2"));
+            }
+            other => panic!("expected provision command, got {other:?}"),
+        },
+        other => panic!("expected auth command, got {other:?}"),
+    }
+
     let verify = Cli::try_parse_from([
         "abbot",
         "auth",
@@ -118,6 +148,73 @@ fn parses_machine_auth_commands() {
             other => panic!("expected verify command, got {other:?}"),
         },
         other => panic!("expected auth command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_invited_human_and_user_invite_commands() {
+    let register = Cli::try_parse_from([
+        "abbot",
+        "auth",
+        "register",
+        "--tenant",
+        "acme",
+        "--username",
+        "alice",
+        "--invite-code",
+        "invite-code-1",
+        "--email",
+        "alice@example.com",
+        "--password",
+        "secret-pass",
+    ])
+    .expect("invite register should parse");
+
+    match register.command {
+        Command::Auth(auth) => match auth.command {
+            AuthSubcommand::Register(args) => {
+                assert_eq!(args.invite_code.as_deref(), Some("invite-code-1"));
+                assert_eq!(args.email.as_deref(), Some("alice@example.com"));
+            }
+            other => panic!("expected register command, got {other:?}"),
+        },
+        other => panic!("expected auth command, got {other:?}"),
+    }
+
+    let invite = Cli::try_parse_from([
+        "abbot",
+        "user",
+        "invite",
+        "--username",
+        "builder_2",
+        "--invite-type",
+        "machine",
+        "--access",
+        "edit",
+        "--access-read",
+        "rooms",
+        "--access-read",
+        "jobs",
+        "--expires-in",
+        "3600",
+    ])
+    .expect("user invite should parse");
+
+    match invite.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::Invite(args) => {
+                assert_eq!(args.username.as_deref(), Some("builder_2"));
+                assert_eq!(args.invite_type.as_deref(), Some("machine"));
+                assert_eq!(args.access.as_deref(), Some("edit"));
+                assert_eq!(
+                    args.access_read,
+                    vec!["rooms".to_string(), "jobs".to_string()]
+                );
+                assert_eq!(args.expires_in, Some(3600));
+            }
+            other => panic!("expected user invite command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
     }
 }
 

@@ -5,12 +5,14 @@ Connect a machine key with the shortest viable flow.
 `abbot` will:
 
 - reuse saved machine key metadata and run challenge -> sign -> verify when it can
-- otherwise provision the machine key, sign the returned nonce, and verify it
+- otherwise provision the machine key, or redeem an invite when `--invite-code`
+  is present, sign the returned nonce, and verify it
 - save the resulting bearer token and machine-auth config locally
 
 Common uses:
 
 - `abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key`
+- `abbot auth machine connect --tenant acme --username builder_2 --invite-code <code> --key @~/.config/secrets/builder_2.key`
 - `abbot auth machine connect --tenant acme --key @~/.config/secrets/machine.key`
 
 Notes:
