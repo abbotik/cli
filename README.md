@@ -10,8 +10,8 @@ The release process is tag-based and publishes GitHub Release assets for:
 - `x86_64-unknown-linux-gnu`
 - `x86_64-apple-darwin`
 - `aarch64-apple-darwin`
-
-Homebrew is intentionally excluded for now.
+- Homebrew artifacts mirrored to `abbotik/homebrew-releases`
+- Homebrew formula published in `abbotik/tap`
 
 ### Curl install
 
@@ -24,8 +24,14 @@ curl -fsSL https://raw.githubusercontent.com/abbotik/cli/main/scripts/install.sh
 To pin a version:
 
 ```bash
-ABBOTIK_CLI_VERSION=v1.1.0 \
+ABBOTIK_CLI_VERSION=v1.2.0 \
   curl -fsSL https://raw.githubusercontent.com/abbotik/cli/main/scripts/install.sh | bash
+```
+
+### Homebrew install
+
+```bash
+brew install abbotik/tap/abbot
 ```
 
 Optional install directory:
@@ -51,12 +57,12 @@ then immediately completing `/auth/login` so the CLI still lands with a saved JW
 
 Machine clients should use:
 
-1. `abbot auth machine connect --tenant <tenant> --username <user> --key @~/.config/secrets/machine.key`
+1. `abbot auth machine connect --tenant <tenant> --username <user> --key ~/.config/abbot/abbotik.key`
 2. `abbot auth refresh` when the saved machine token expires; `abbot` auto-detects public-key auth and runs challenge→sign→verify using the saved key path
 3. `abbot keys list`
 
 Low-level machine-auth commands still exist for manual control:
 
-1. `abbot auth provision --tenant <tenant> --username <user> --public-key @machine.pub --save-private-key-path ~/.config/secrets/machine.key`
+1. `abbot auth provision --tenant <tenant> --username <user> --public-key @~/.config/abbot/abbotik.pub --save-private-key-path ~/.config/abbot/abbotik.key`
 2. Sign the returned nonce with the matching private key
 3. `abbot auth verify --tenant <tenant> --challenge-id <id> --signature @signature.txt`
