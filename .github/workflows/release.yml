@@ -68,6 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HOMEBREW_RELEASES_TOKEN: ${{ secrets.HOMEBREW_RELEASES_TOKEN }}
+      HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
     steps:
       - name: Download build artifacts
@@ -104,3 +105,81 @@ jobs:
               --title "${release_title}" \
               --notes "Public Homebrew release artifacts for ${release_title}."
           fi
+
+      - name: Update Homebrew tap
+        if: ${{ env.HOMEBREW_TAP_TOKEN != '' || env.HOMEBREW_RELEASES_TOKEN != '' }}
+        env:
+          HOMEBREW_RELEASES_TOKEN: ${{ env.HOMEBREW_RELEASES_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ env.HOMEBREW_TAP_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export GH_TOKEN="${HOMEBREW_TAP_TOKEN:-${HOMEBREW_RELEASES_TOKEN}}"
+
+          version="${GITHUB_REF_NAME}"
+          release_tag="abbot-${version}"
+          tap_repo="abbotik/homebrew-tap"
+          workdir="$(mktemp -d)"
+          trap 'rm -rf "${workdir}"' EXIT
+
+          gh repo clone "${tap_repo}" "${workdir}/tap" -- --depth=1
+
+          arm_archive="abbotik-cli-${version}-aarch64-apple-darwin.tar.gz"
+          x64_macos_archive="abbotik-cli-${version}-x86_64-apple-darwin.tar.gz"
+          x64_linux_archive="abbotik-cli-${version}-x86_64-unknown-linux-gnu.tar.gz"
+
+          arm_checksum="$(awk '{print $1}' "dist/${arm_archive}.sha256")"
+          x64_macos_checksum="$(awk '{print $1}' "dist/${x64_macos_archive}.sha256")"
+          x64_linux_checksum="$(awk '{print $1}' "dist/${x64_linux_archive}.sha256")"
+
+          formula_path="${workdir}/tap/Formula/abbot.rb"
+          cat > "${formula_path}" <<EOF
+          class Abbot < Formula
+            require "rbconfig"
+
+            desc "Rust CLI for the Abbotik API"
+            homepage "https://github.com/abbotik/cli"
+
+            host_os = RUBY_PLATFORM
+            host_cpu = RbConfig::CONFIG.fetch("host_cpu")
+
+            if host_os.include?("darwin") && host_cpu.match?(/arm|aarch64/)
+              archive = "${arm_archive}"
+              checksum = "${arm_checksum}"
+            elsif host_os.include?("darwin") && host_cpu == "x86_64"
+              archive = "${x64_macos_archive}"
+              checksum = "${x64_macos_checksum}"
+            elsif host_os.include?("linux")
+              archive = "${x64_linux_archive}"
+              checksum = "${x64_linux_checksum}"
+            else
+              raise "Unsupported platform for abbot: #{host_os} / #{host_cpu}"
+            end
+
+            url "https://github.com/abbotik/homebrew-releases/releases/download/${release_tag}/#{archive}"
+            sha256 checksum
+            license "MIT"
+
+            def install
+              bin.install "abbot"
+            end
+
+            test do
+              assert_match "abbot", shell_output("#{bin}/abbot --help")
+            end
+          end
+          EOF
+
+          cd "${workdir}/tap"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- Formula/abbot.rb; then
+            echo "Formula already matches ${version}"
+            exit 0
+          fi
+
+          git add Formula/abbot.rb
+          git commit -m "Update abbot formula to ${version}"
+          git push origin HEAD:main
