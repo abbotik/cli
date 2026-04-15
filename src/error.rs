@@ -19,10 +19,10 @@ pub enum AbbotikError {
     ConfigWrite { path: String, source: io::Error },
 
     #[error("failed to serialize config: {0}")]
-    ConfigSerialize(serde_json::Error),
+    ConfigSerialize(toml::ser::Error),
 
     #[error("failed to deserialize config: {0}")]
-    ConfigDeserialize(serde_json::Error),
+    ConfigDeserialize(toml::de::Error),
 
     #[error("request to {method} {url} failed: {source}")]
     Request {
