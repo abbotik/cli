@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AbbotikError;
 
-const CONFIG_DIR_NAME: &str = "abbotik";
+const CONFIG_DIR_NAME: &str = "abbot";
 const CONFIG_FILE_NAME: &str = "config.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -82,8 +82,8 @@ impl AbbotikConfig {
     }
 
     pub fn config_path() -> Result<PathBuf, AbbotikError> {
-        let base = dirs::config_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
-        Ok(base.join(CONFIG_DIR_NAME).join(CONFIG_FILE_NAME))
+        let home = dirs::home_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
+        Ok(home.join(".config").join(CONFIG_DIR_NAME).join(CONFIG_FILE_NAME))
     }
 
     pub fn load() -> Result<Self, AbbotikError> {
@@ -178,6 +178,17 @@ mod tests {
     #[test]
     fn default_base_url_points_to_public_api() {
         assert_eq!(AbbotikConfig::default().base_url, "https://api.abbotik.com");
+    }
+
+    #[test]
+    fn config_path_uses_home_dot_config_abbot() {
+        let home = dirs::home_dir().expect("home directory should exist in tests");
+        let expected = home.join(".config").join("abbot").join("config.json");
+
+        assert_eq!(
+            AbbotikConfig::config_path().expect("config path should resolve"),
+            expected
+        );
     }
 
     #[test]
