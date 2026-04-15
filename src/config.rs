@@ -3,14 +3,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AbbotikError;
 
 const CONFIG_DIR_NAME: &str = "abbot";
 const CONFIG_FILE_NAME: &str = "config.toml";
-const LEGACY_CONFIG_FILE_NAME: &str = "config.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct MachineAuthConfig {
@@ -88,25 +86,8 @@ impl AbbotikConfig {
         Ok(home.join(".config").join(CONFIG_DIR_NAME).join(CONFIG_FILE_NAME))
     }
 
-    pub fn legacy_config_path() -> Result<PathBuf, AbbotikError> {
-        let home = dirs::home_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
-        Ok(home
-            .join(".config")
-            .join(CONFIG_DIR_NAME)
-            .join(LEGACY_CONFIG_FILE_NAME))
-    }
-
     pub fn load() -> Result<Self, AbbotikError> {
         let path = Self::config_path()?;
-        if path.exists() {
-            return Self::load_from_path(&path);
-        }
-
-        let legacy_path = Self::legacy_config_path()?;
-        if legacy_path.exists() {
-            return Self::load_from_legacy_json_path(&legacy_path);
-        }
-
         Self::load_from_path(&path)
     }
 
@@ -117,17 +98,6 @@ impl AbbotikConfig {
             source,
         })?;
         toml::from_str(&raw).map_err(AbbotikError::ConfigDeserialize)
-    }
-
-    pub fn load_from_legacy_json_path(path: impl AsRef<Path>) -> Result<Self, AbbotikError> {
-        let path = path.as_ref();
-        let raw = fs::read_to_string(path).map_err(|source| AbbotikError::ConfigRead {
-            path: path.display().to_string(),
-            source,
-        })?;
-        serde_json::from_str(&raw).map_err(|source| {
-            AbbotikError::ConfigDeserialize(toml::de::Error::custom(source.to_string()))
-        })
     }
 
     pub fn save(&self) -> Result<(), AbbotikError> {
@@ -222,17 +192,6 @@ mod tests {
     }
 
     #[test]
-    fn legacy_config_path_uses_home_dot_config_abbot_json() {
-        let home = dirs::home_dir().expect("home directory should exist in tests");
-        let expected = home.join(".config").join("abbot").join("config.json");
-
-        assert_eq!(
-            AbbotikConfig::legacy_config_path().expect("legacy config path should resolve"),
-            expected
-        );
-    }
-
-    #[test]
     fn save_and_load_round_trips_token_state() {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -262,39 +221,6 @@ mod tests {
         assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.tenant.as_deref()), Some("acme"));
         assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.public_key_path.as_deref()), Some("/tmp/machine.pub"));
         assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.private_key_path.as_deref()), Some("/tmp/machine.key"));
-
-        let _ = std::fs::remove_file(&path);
-    }
-
-    #[test]
-    fn legacy_json_config_still_loads() {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after unix epoch")
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("abbot-config-{stamp}.json"));
-
-        let raw = r#"{
-  "base_url": "https://example.com",
-  "token": "jwt-legacy",
-  "output_format": "yaml",
-  "machine_auth": {
-    "tenant": "acme",
-    "private_key_path": "/tmp/machine.key"
-  }
-}"#;
-
-        std::fs::write(&path, raw).expect("legacy config should write");
-        let loaded = AbbotikConfig::load_from_legacy_json_path(&path).expect("legacy config should load");
-
-        assert_eq!(loaded.base_url, "https://example.com");
-        assert_eq!(loaded.token.as_deref(), Some("jwt-legacy"));
-        assert_eq!(loaded.output_format, OutputFormat::Yaml);
-        assert_eq!(loaded.machine_auth.as_ref().and_then(|m| m.tenant.as_deref()), Some("acme"));
-        assert_eq!(
-            loaded.machine_auth.as_ref().and_then(|m| m.private_key_path.as_deref()),
-            Some("/tmp/machine.key")
-        );
 
         let _ = std::fs::remove_file(&path);
     }
