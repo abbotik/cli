@@ -51,8 +51,12 @@ then immediately completing `/auth/login` so the CLI still lands with a saved JW
 
 Machine clients should use:
 
+1. `abbot auth machine connect --tenant <tenant> --username <user> --key @~/.config/secrets/machine.key`
+2. `abbot auth refresh` when the saved machine token expires; `abbot` auto-detects public-key auth and runs challenge→sign→verify using the saved key path
+3. `abbot keys list`
+
+Low-level machine-auth commands still exist for manual control:
+
 1. `abbot auth provision --tenant <tenant> --username <user> --public-key @machine.pub --save-private-key-path ~/.config/secrets/machine.key`
 2. Sign the returned nonce with the matching private key
 3. `abbot auth verify --tenant <tenant> --challenge-id <id> --signature @signature.txt`
-4. `abbot auth refresh` when the saved machine token expires; `abbot` auto-detects public-key auth and runs challenge→sign→verify using the saved key paths
-5. `abbot keys list`

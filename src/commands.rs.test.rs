@@ -31,6 +31,34 @@ fn parses_auth_token_set_with_positional_token() {
 
 #[test]
 fn parses_machine_auth_commands() {
+    let connect = Cli::try_parse_from([
+        "abbot",
+        "auth",
+        "machine",
+        "connect",
+        "--tenant",
+        "acme",
+        "--username",
+        "machine_root",
+        "--key",
+        "@~/.config/secrets/machine.key",
+    ])
+    .expect("machine connect should parse");
+
+    match connect.command {
+        Command::Auth(auth) => match auth.command {
+            AuthSubcommand::Machine(machine) => match machine.command {
+                crate::cli::AuthMachineSubcommand::Connect(args) => {
+                    assert_eq!(args.tenant.as_deref(), Some("acme"));
+                    assert_eq!(args.username.as_deref(), Some("machine_root"));
+                    assert_eq!(args.key.as_deref(), Some("@~/.config/secrets/machine.key"));
+                }
+            },
+            other => panic!("expected machine command, got {other:?}"),
+        },
+        other => panic!("expected auth command, got {other:?}"),
+    }
+
     let provision = Cli::try_parse_from([
         "abbot",
         "auth",

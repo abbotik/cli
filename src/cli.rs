@@ -11,6 +11,8 @@ const AUTH_REFRESH_AFTER_HELP: &str = include_str!("../docs/help/auth-refresh-af
 const AUTH_PROVISION_AFTER_HELP: &str = include_str!("../docs/help/auth-provision-after-help.md");
 const AUTH_CHALLENGE_AFTER_HELP: &str = include_str!("../docs/help/auth-challenge-after-help.md");
 const AUTH_VERIFY_AFTER_HELP: &str = include_str!("../docs/help/auth-verify-after-help.md");
+const AUTH_MACHINE_AFTER_HELP: &str = include_str!("../docs/help/auth-machine-after-help.md");
+const AUTH_MACHINE_CONNECT_AFTER_HELP: &str = include_str!("../docs/help/auth-machine-connect-after-help.md");
 const AUTH_DISSOLVE_AFTER_HELP: &str = include_str!("../docs/help/auth-dissolve-after-help.md");
 const AUTH_DISSOLVE_CONFIRM_AFTER_HELP: &str = include_str!("../docs/help/auth-dissolve-confirm-after-help.md");
 const AUTH_TOKEN_AFTER_HELP: &str = include_str!("../docs/help/auth-token-after-help.md");
@@ -151,6 +153,8 @@ pub enum AuthSubcommand {
     Challenge(AuthChallengeCommand),
     /// Verify a signed challenge and mint an Abbotik bearer token
     Verify(AuthVerifyCommand),
+    /// Machine auth happy-path commands
+    Machine(AuthMachineCommand),
     /// Dissolve a tenant via the two-step confirmation flow
     Dissolve(AuthDissolveCommand),
     /// Show, set, or clear the saved JWT
@@ -281,6 +285,48 @@ pub struct AuthVerifyCommand {
     /// Save the matching private key path into local config for future machine refresh
     #[arg(long = "save-private-key-path")]
     pub save_private_key_path: Option<String>,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = AUTH_MACHINE_AFTER_HELP)]
+pub struct AuthMachineCommand {
+    #[command(subcommand)]
+    pub command: AuthMachineSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+#[command(after_long_help = AUTH_MACHINE_AFTER_HELP)]
+pub enum AuthMachineSubcommand {
+    /// Connect a machine key by provisioning or re-verifying automatically
+    Connect(AuthMachineConnectCommand),
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = AUTH_MACHINE_CONNECT_AFTER_HELP)]
+pub struct AuthMachineConnectCommand {
+    /// Tenant name to authenticate against
+    #[arg(long)]
+    pub tenant: Option<String>,
+
+    /// Canonical username for first-time machine bootstrap
+    #[arg(long)]
+    pub username: Option<String>,
+
+    /// Path to an Ed25519 private key PEM; plain paths and @<path> both work
+    #[arg(long = "key")]
+    pub key: Option<String>,
+
+    /// Optional public key PEM override, use - for stdin or @<path> for a file
+    #[arg(long = "public-key")]
+    pub public_key: Option<String>,
+
+    /// Public-key algorithm
+    #[arg(long)]
+    pub algorithm: Option<String>,
+
+    /// Friendly name for the provisioned key
+    #[arg(long = "key-name")]
+    pub key_name: Option<String>,
 }
 
 #[derive(Args, Debug)]

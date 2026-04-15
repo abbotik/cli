@@ -5,7 +5,10 @@ use std::{
 };
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use ed25519_dalek::{pkcs8::DecodePrivateKey, Signer, SigningKey};
+use ed25519_dalek::{
+    pkcs8::{DecodePrivateKey, EncodePublicKey},
+    Signer, SigningKey,
+};
 use reqwest::Method;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -13,7 +16,7 @@ use serde_json::{json, Map, Value};
 use crate::{
     api::{
         ApiClient, ChallengeRequest, DissolveConfirmRequest, DissolveRequest, LoginRequest,
-        ProvisionRequest, RefreshRequest, RegisterRequest, VerifyRequest,
+        ProvisionRequest, RefreshRequest, RegisterRequest, VerifyData, VerifyRequest,
     },
     cli::{
         AclsCommand, AggregateCommand, AggregateOptions, AppCommand, AuthCommand, BulkCommand,
@@ -120,6 +123,16 @@ fn sign_machine_nonce(private_key_path: &str, nonce: &str) -> anyhow::Result<Str
     Ok(URL_SAFE_NO_PAD.encode(signature.to_bytes()))
 }
 
+fn derive_public_key_pem(private_key_path: &str) -> anyhow::Result<String> {
+    let pem = fs::read_to_string(private_key_path)?;
+    let signing_key = SigningKey::from_pkcs8_pem(&pem)
+        .map_err(|error| anyhow::anyhow!("failed to decode Ed25519 private key at {private_key_path}: {error}"))?;
+    signing_key
+        .verifying_key()
+        .to_public_key_pem(Default::default())
+        .map_err(|error| anyhow::anyhow!("failed to encode Ed25519 public key from {private_key_path}: {error}"))
+}
+
 fn update_machine_auth_from_verify_response(
     config: &mut AbbotikConfig,
     verify_data: Option<&crate::api::VerifyData>,
@@ -218,6 +231,160 @@ async fn refresh_machine_auth(
         "challenge": challenge,
         "verify": verify,
     }))
+}
+
+fn save_machine_verify_result(
+    config: &mut AbbotikConfig,
+    verify_data: Option<&VerifyData>,
+    token: &str,
+    public_key_path: Option<&str>,
+    private_key_path: Option<&str>,
+    save_path: Option<&Path>,
+) -> anyhow::Result<()> {
+    config.set_token(token.to_string());
+    update_machine_auth_from_verify_response(config, verify_data, token, public_key_path, private_key_path)?;
+    save_config(config, save_path)?;
+    Ok(())
+}
+
+fn machine_key_paths(
+    key_source: Option<&str>,
+    public_key_source: Option<&str>,
+) -> anyhow::Result<(String, Option<String>)> {
+    let private_key_path = key_source
+        .map(|value| value.strip_prefix('@').unwrap_or(value))
+        .ok_or_else(|| anyhow::anyhow!("machine connect requires --key <private-key-path>"))?;
+    Ok((
+        normalize_path_string(private_key_path)?,
+        source_path_string(public_key_source)?,
+    ))
+}
+
+fn machine_public_key_pem(public_key_source: Option<&str>, private_key_path: &str) -> anyhow::Result<String> {
+    match read_secret_source_option(public_key_source)? {
+        Some(public_key) => Ok(public_key),
+        None => derive_public_key_pem(private_key_path),
+    }
+}
+
+async fn machine_connect(
+    args: crate::cli::AuthMachineConnectCommand,
+    config: &mut AbbotikConfig,
+    client: &ApiClient,
+    save_path: Option<&Path>,
+) -> anyhow::Result<()> {
+    let (private_key_path, public_key_path) = machine_key_paths(args.key.as_deref(), args.public_key.as_deref())?;
+    let token_claims = config
+        .token()
+        .and_then(|token| decode_token_claims(token).ok())
+        .filter(|claims| claims.auth_type.as_deref() == Some("public_key"))
+        .unwrap_or_default();
+    let tenant = args
+        .tenant
+        .clone()
+        .or_else(|| config.machine_auth.as_ref().and_then(|machine| machine.tenant.clone()))
+        .or(token_claims.tenant.clone())
+        .ok_or_else(|| anyhow::anyhow!("machine connect requires --tenant or a saved machine tenant"))?;
+
+    let machine_auth = config
+        .machine_auth
+        .clone()
+        .filter(|machine| machine.tenant.as_deref() == Some(tenant.as_str()))
+        .unwrap_or_default();
+    let key_id = machine_auth.key_id.clone().or(token_claims.key_id.clone());
+    let fingerprint = machine_auth
+        .key_fingerprint
+        .clone()
+        .or(token_claims.key_fingerprint.clone());
+
+    if key_id.is_some() || fingerprint.is_some() {
+        let challenge = client
+            .auth_challenge(&ChallengeRequest {
+                tenant: Some(tenant.clone()),
+                key_id,
+                fingerprint,
+            })
+            .await?;
+        let challenge_data = challenge
+            .data
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("challenge response did not include challenge data"))?;
+        let signature = sign_machine_nonce(&private_key_path, &challenge_data.nonce)?;
+        let verify = client
+            .auth_verify(&VerifyRequest {
+                tenant: Some(tenant),
+                challenge_id: Some(challenge_data.challenge_id.clone()),
+                signature: Some(signature),
+            })
+            .await?;
+        let token = verify
+            .data
+            .as_ref()
+            .map(|data| data.token.clone())
+            .ok_or_else(|| anyhow::anyhow!("verify response did not include a bearer token"))?;
+        save_machine_verify_result(
+            config,
+            verify.data.as_ref(),
+            &token,
+            public_key_path.as_deref(),
+            Some(&private_key_path),
+            save_path,
+        )?;
+        print_json(&json!({
+            "success": verify.success,
+            "mode": "reconnect",
+            "challenge": challenge,
+            "verify": verify,
+        }))?;
+        return Ok(());
+    }
+
+    let username = args
+        .username
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("machine connect requires --username when no saved machine key metadata exists"))?;
+    let public_key = machine_public_key_pem(args.public_key.as_deref(), &private_key_path)?;
+    let provision = client
+        .auth_provision(&ProvisionRequest {
+            tenant: Some(tenant.clone()),
+            username: Some(username),
+            public_key: Some(public_key),
+            algorithm: args.algorithm,
+            key_name: args.key_name,
+        })
+        .await?;
+    let provision_data = provision
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("provision response did not include challenge data"))?;
+    let signature = sign_machine_nonce(&private_key_path, &provision_data.challenge.nonce)?;
+    let verify = client
+        .auth_verify(&VerifyRequest {
+            tenant: Some(tenant),
+            challenge_id: Some(provision_data.challenge.challenge_id.clone()),
+            signature: Some(signature),
+        })
+        .await?;
+    let token = verify
+        .data
+        .as_ref()
+        .map(|data| data.token.clone())
+        .ok_or_else(|| anyhow::anyhow!("verify response did not include a bearer token"))?;
+    save_machine_verify_result(
+        config,
+        verify.data.as_ref(),
+        &token,
+        public_key_path.as_deref(),
+        Some(&private_key_path),
+        save_path,
+    )?;
+    print_json(&json!({
+        "success": verify.success,
+        "mode": "provision",
+        "provision": provision,
+        "verify": verify,
+    }))?;
+    Ok(())
 }
 
 async fn auth(
@@ -360,18 +527,22 @@ async fn auth(
                 })
                 .await?;
             if let Some(token) = response.data.as_ref().map(|data| data.token.clone()) {
-                config.set_token(token.clone());
-                update_machine_auth_from_verify_response(
+                save_machine_verify_result(
                     config,
                     response.data.as_ref(),
                     &token,
                     args.save_public_key_path.as_deref(),
                     args.save_private_key_path.as_deref(),
+                    save_path,
                 )?;
-                save_config(config, save_path)?;
             }
             print_json(&response)?;
         }
+        crate::cli::AuthSubcommand::Machine(command) => match command.command {
+            crate::cli::AuthMachineSubcommand::Connect(args) => {
+                machine_connect(args, config, client, save_path).await?;
+            }
+        },
         crate::cli::AuthSubcommand::Dissolve(command) => {
             auth_dissolve(command, client).await?;
         }
