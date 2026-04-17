@@ -48,8 +48,10 @@ const AUTH_AFTER_HELP: &str = include_str!("../../docs/help/auth-after-help.md")
 const AUTH_LOGIN_AFTER_HELP: &str = include_str!("../../docs/help/auth-login-after-help.md");
 const AUTH_REGISTER_AFTER_HELP: &str = include_str!("../../docs/help/auth-register-after-help.md");
 const AUTH_REFRESH_AFTER_HELP: &str = include_str!("../../docs/help/auth-refresh-after-help.md");
-const AUTH_PROVISION_AFTER_HELP: &str = include_str!("../../docs/help/auth-provision-after-help.md");
-const AUTH_CHALLENGE_AFTER_HELP: &str = include_str!("../../docs/help/auth-challenge-after-help.md");
+const AUTH_PROVISION_AFTER_HELP: &str =
+    include_str!("../../docs/help/auth-provision-after-help.md");
+const AUTH_CHALLENGE_AFTER_HELP: &str =
+    include_str!("../../docs/help/auth-challenge-after-help.md");
 const AUTH_VERIFY_AFTER_HELP: &str = include_str!("../../docs/help/auth-verify-after-help.md");
 const AUTH_MACHINE_AFTER_HELP: &str = include_str!("../../docs/help/auth-machine-after-help.md");
 const AUTH_MACHINE_CONNECT_AFTER_HELP: &str =
@@ -60,7 +62,8 @@ const AUTH_DISSOLVE_CONFIRM_AFTER_HELP: &str =
 const AUTH_TOKEN_AFTER_HELP: &str = include_str!("../../docs/help/auth-token-after-help.md");
 const DOCS_AFTER_HELP: &str = include_str!("../../docs/help/docs-after-help.md");
 const DESCRIBE_AFTER_HELP: &str = include_str!("../../docs/help/describe-after-help.md");
-const DESCRIBE_FIELDS_AFTER_HELP: &str = include_str!("../../docs/help/describe-fields-after-help.md");
+const DESCRIBE_FIELDS_AFTER_HELP: &str =
+    include_str!("../../docs/help/describe-fields-after-help.md");
 const DATA_AFTER_HELP: &str = include_str!("../../docs/help/data-after-help.md");
 const DATA_RELATIONSHIP_AFTER_HELP: &str =
     include_str!("../../docs/help/data-relationship-after-help.md");
@@ -84,9 +87,12 @@ const USER_INVITE_AFTER_HELP: &str = include_str!("../../docs/help/user-invite-a
 const USER_KEYS_AFTER_HELP: &str = include_str!("../../docs/help/user-keys-after-help.md");
 const USER_KEYS_CREATE_AFTER_HELP: &str =
     include_str!("../../docs/help/user-keys-create-after-help.md");
+const USER_KEYS_ROTATE_AFTER_HELP: &str =
+    include_str!("../../docs/help/user-keys-rotate-after-help.md");
+const USER_KEYS_DELETE_AFTER_HELP: &str =
+    include_str!("../../docs/help/user-keys-delete-after-help.md");
 const KEYS_AFTER_HELP: &str = include_str!("../../docs/help/keys-after-help.md");
 const KEYS_CREATE_AFTER_HELP: &str = include_str!("../../docs/help/keys-create-after-help.md");
-const KEYS_ROTATE_AFTER_HELP: &str = include_str!("../../docs/help/keys-rotate-after-help.md");
 const KEYS_DELETE_AFTER_HELP: &str = include_str!("../../docs/help/keys-delete-after-help.md");
 const LLM_AFTER_HELP: &str = include_str!("../../docs/help/llm-after-help.md");
 const LLM_ROOM_AFTER_HELP: &str = include_str!("../../docs/help/llm-room-after-help.md");
@@ -158,9 +164,9 @@ pub enum Command {
     Tracked(TrackedCommand),
     /// Soft-delete and restore workflows
     Trashed(TrashedCommand),
-    /// User and sudo workflows
+    /// User, machine-key, and sudo workflows
     User(UserCommand),
-    /// Tenant machine key management
+    /// Self-service bearer API key management
     Keys(KeysCommand),
     /// LLM rooms, factory runs, and provider discovery
     Llm(LlmCommand),

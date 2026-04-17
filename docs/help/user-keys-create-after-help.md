@@ -1,7 +1,8 @@
-# User Keys Create
+# User Machine Keys Create
 
-Create a new API key for a user.
+Create a new tenant machine key.
 
-Use this when you need to mint a scoped key with explicit metadata.
+Use this when you need to bind an uploaded public key to a tenant-local machine
+user.
 
 This branch is intentionally concise; use the command itself for the full flag list.

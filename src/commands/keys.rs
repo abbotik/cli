@@ -7,17 +7,14 @@ pub(super) async fn run(command: KeysCommand, client: &ApiClient) -> anyhow::Res
             let body = keys_create_body(args)?;
             print_json(&client.post_json::<_, Value>("/api/keys", &body).await?)?;
         }
-        KeysSubcommand::Rotate(args) => {
-            let body = keys_rotate_body(args)?;
-            print_json(
-                &client
-                    .post_json::<_, Value>("/api/keys/rotate", &body)
-                    .await?,
-            )?;
-        }
         KeysSubcommand::Delete(arg) => print_json(
             &client
                 .delete_json::<Value>(&format!("/api/keys/{}", arg.key_id))
+                .await?,
+        )?,
+        KeysSubcommand::RevokeAll => print_json(
+            &client
+                .post_json::<_, Value>("/api/keys/revoke-all", &json!({}))
                 .await?,
         )?,
     }
@@ -25,44 +22,58 @@ pub(super) async fn run(command: KeysCommand, client: &ApiClient) -> anyhow::Res
 }
 
 fn keys_create_body(args: KeysCreateCommand) -> anyhow::Result<Value> {
+    if let Some(body) = args.body {
+        return Ok(serde_json::from_str(&body)?);
+    }
+
     let mut object = Map::new();
-    if let Some(user_id) = args.user_id {
-        object.insert("user_id".to_string(), Value::String(user_id));
-    }
-    if let Some(public_key) = read_secret_source_option(args.public_key.as_deref())? {
-        object.insert("public_key".to_string(), Value::String(public_key));
-    }
     if let Some(name) = args.name {
         object.insert("name".to_string(), Value::String(name));
-    }
-    if let Some(algorithm) = args.algorithm {
-        object.insert("algorithm".to_string(), Value::String(algorithm));
     }
     if let Some(expires_at) = args.expires_at {
         object.insert("expires_at".to_string(), Value::String(expires_at));
     }
+
+    if object.is_empty() {
+        return read_json_body_or_default(json!({}));
+    }
+
     Ok(Value::Object(object))
 }
 
-fn keys_rotate_body(args: KeysRotateCommand) -> anyhow::Result<Value> {
-    let mut object = Map::new();
-    if let Some(key_id) = args.key_id {
-        object.insert("key_id".to_string(), Value::String(key_id));
+#[cfg(test)]
+mod tests {
+    use super::keys_create_body;
+    use crate::cli::KeysCreateCommand;
+    use serde_json::json;
+
+    #[test]
+    fn keys_create_body_prefers_inline_json() {
+        let body = keys_create_body(KeysCreateCommand {
+            body: Some("{\"name\":\"ci\"}".to_string()),
+            name: None,
+            expires_at: None,
+        })
+        .expect("body should parse");
+
+        assert_eq!(body, json!({"name": "ci"}));
     }
-    if let Some(new_public_key) = read_secret_source_option(args.new_public_key.as_deref())? {
-        object.insert("new_public_key".to_string(), Value::String(new_public_key));
-    }
-    if let Some(algorithm) = args.algorithm {
-        object.insert("algorithm".to_string(), Value::String(algorithm));
-    }
-    if let Some(new_name) = args.new_name {
-        object.insert("new_name".to_string(), Value::String(new_name));
-    }
-    if let Some(revoke_old_after_seconds) = args.revoke_old_after_seconds {
-        object.insert(
-            "revoke_old_after_seconds".to_string(),
-            Value::Number(revoke_old_after_seconds.into()),
+
+    #[test]
+    fn keys_create_body_builds_object_from_flags() {
+        let body = keys_create_body(KeysCreateCommand {
+            body: None,
+            name: Some("CI runner".to_string()),
+            expires_at: Some("2026-12-31T23:59:59Z".to_string()),
+        })
+        .expect("body should build");
+
+        assert_eq!(
+            body,
+            json!({
+                "name": "CI runner",
+                "expires_at": "2026-12-31T23:59:59Z"
+            })
         );
     }
-    Ok(Value::Object(object))
 }

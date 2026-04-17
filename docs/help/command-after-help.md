@@ -20,8 +20,8 @@ Use this rough map when navigating the CLI:
 - `data` for CRUD and relationship traversal
 - `find`, `aggregate`, and `bulk` for queries and batch work
 - `acls`, `stat`, `tracked`, and `trashed` for record state and audit-like views
-- `user` for account operations and elevated actions
-- `keys` for tenant-bound machine credentials
+- `user` for account operations, machine-key management, and elevated actions
+- `keys` for self-service bearer API keys
 - `cron` for scheduled workflows
 - `fs` for file content and metadata
 - `app` for app-specific path forwarding

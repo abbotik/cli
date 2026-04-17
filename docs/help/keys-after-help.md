@@ -1,5 +1,5 @@
 # Keys
 
-Manage tenant-bound machine credentials through `/api/keys`.
+Manage self-service bearer API keys through `/api/keys`.
 
-Use this branch to list, add, rotate, or revoke machine keys after bootstrap.
+Use this branch to list, mint, or revoke the current user's API keys.

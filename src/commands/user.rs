@@ -19,26 +19,29 @@ pub(super) async fn run(command: UserCommand, client: &ApiClient) -> anyhow::Res
             let request = user_invite_request(args);
             print_json(&client.user_invite(&request).await?)?;
         }
-        UserSubcommand::ApiKeys(command) => match command.command {
-            UserApiKeysSubcommand::List => {
-                print_json(&client.get_json::<Value>("/api/user/api-keys").await?)?
+        UserSubcommand::MachineKeys(command) => match command.command {
+            UserMachineKeysSubcommand::List => {
+                print_json(&client.get_json::<Value>("/api/user/machine-keys").await?)?
             }
-            UserApiKeysSubcommand::Create(args) => {
-                let body = user_api_keys_create_body(args)?;
+            UserMachineKeysSubcommand::Create(args) => {
+                let body = user_machine_keys_create_body(args)?;
                 print_json(
                     &client
-                        .post_json::<_, Value>("/api/user/api-keys", &body)
+                        .post_json::<_, Value>("/api/user/machine-keys", &body)
                         .await?,
                 )?
             }
-            UserApiKeysSubcommand::Delete(arg) => print_json(
+            UserMachineKeysSubcommand::Rotate(args) => {
+                let body = user_machine_keys_rotate_body(args)?;
+                print_json(
+                    &client
+                        .post_json::<_, Value>("/api/user/machine-keys/rotate", &body)
+                        .await?,
+                )?
+            }
+            UserMachineKeysSubcommand::Delete(arg) => print_json(
                 &client
-                    .delete_json::<Value>(&format!("/api/user/api-keys/{}", arg.key_id))
-                    .await?,
-            )?,
-            UserApiKeysSubcommand::RevokeAll => print_json(
-                &client
-                    .post_json::<_, Value>("/api/user/api-keys/revoke-all", &json!({}))
+                    .delete_json::<Value>(&format!("/api/user/machine-keys/{}", arg.key_id))
                     .await?,
             )?,
         },
@@ -140,21 +143,46 @@ fn user_create_body(args: UserCreateCommand) -> anyhow::Result<Value> {
     Ok(Value::Object(object))
 }
 
-fn user_api_keys_create_body(args: UserApiKeysCreateCommand) -> anyhow::Result<Value> {
-    if let Some(body) = args.body {
-        return Ok(serde_json::from_str(&body)?);
-    }
-
+fn user_machine_keys_create_body(args: UserMachineKeysCreateCommand) -> anyhow::Result<Value> {
     let mut object = Map::new();
+    if let Some(user_id) = args.user_id {
+        object.insert("user_id".to_string(), Value::String(user_id));
+    }
+    if let Some(public_key) = read_secret_source_option(args.public_key.as_deref())? {
+        object.insert("public_key".to_string(), Value::String(public_key));
+    }
     if let Some(name) = args.name {
         object.insert("name".to_string(), Value::String(name));
+    }
+    if let Some(algorithm) = args.algorithm {
+        object.insert("algorithm".to_string(), Value::String(algorithm));
     }
     if let Some(expires_at) = args.expires_at {
         object.insert("expires_at".to_string(), Value::String(expires_at));
     }
 
-    if object.is_empty() {
-        return read_json_body_or_default(json!({}));
+    Ok(Value::Object(object))
+}
+
+fn user_machine_keys_rotate_body(args: UserMachineKeysRotateCommand) -> anyhow::Result<Value> {
+    let mut object = Map::new();
+    if let Some(key_id) = args.key_id {
+        object.insert("key_id".to_string(), Value::String(key_id));
+    }
+    if let Some(new_public_key) = read_secret_source_option(args.new_public_key.as_deref())? {
+        object.insert("new_public_key".to_string(), Value::String(new_public_key));
+    }
+    if let Some(algorithm) = args.algorithm {
+        object.insert("algorithm".to_string(), Value::String(algorithm));
+    }
+    if let Some(new_name) = args.new_name {
+        object.insert("new_name".to_string(), Value::String(new_name));
+    }
+    if let Some(revoke_old_after_seconds) = args.revoke_old_after_seconds {
+        object.insert(
+            "revoke_old_after_seconds".to_string(),
+            Value::Number(revoke_old_after_seconds.into()),
+        );
     }
 
     Ok(Value::Object(object))
@@ -193,12 +221,12 @@ fn user_password_body(args: UserPasswordCommand) -> anyhow::Result<PasswordBody>
 #[cfg(test)]
 mod tests {
     use super::{
-        user_api_keys_create_body, user_create_body, user_invite_request, user_list_query,
-        user_password_body, PasswordBody,
+        user_create_body, user_invite_request, user_list_query, user_machine_keys_create_body,
+        user_machine_keys_rotate_body, user_password_body, PasswordBody,
     };
     use crate::cli::{
-        UserApiKeysCreateCommand, UserCreateCommand, UserInviteCommand, UserListCommand,
-        UserPasswordCommand,
+        UserCreateCommand, UserInviteCommand, UserListCommand, UserMachineKeysCreateCommand,
+        UserMachineKeysRotateCommand, UserPasswordCommand,
     };
     use serde_json::json;
 
@@ -249,10 +277,12 @@ mod tests {
     }
 
     #[test]
-    fn user_api_keys_create_body_builds_object_from_flags() {
-        let body = user_api_keys_create_body(UserApiKeysCreateCommand {
-            body: None,
+    fn user_machine_keys_create_body_builds_object_from_flags() {
+        let body = user_machine_keys_create_body(UserMachineKeysCreateCommand {
+            user_id: Some("user_123".to_string()),
+            public_key: Some("ssh-ed25519 AAAA".to_string()),
             name: Some("bot".to_string()),
+            algorithm: Some("ed25519".to_string()),
             expires_at: Some("2026-04-20T00:00:00Z".to_string()),
         })
         .expect("body should build");
@@ -260,8 +290,34 @@ mod tests {
         assert_eq!(
             body,
             json!({
+                "user_id": "user_123",
+                "public_key": "ssh-ed25519 AAAA",
                 "name": "bot",
+                "algorithm": "ed25519",
                 "expires_at": "2026-04-20T00:00:00Z"
+            })
+        );
+    }
+
+    #[test]
+    fn user_machine_keys_rotate_body_builds_object_from_flags() {
+        let body = user_machine_keys_rotate_body(UserMachineKeysRotateCommand {
+            key_id: Some("key_123".to_string()),
+            new_public_key: Some("ssh-ed25519 BBBB".to_string()),
+            algorithm: Some("ed25519".to_string()),
+            new_name: Some("next".to_string()),
+            revoke_old_after_seconds: Some(300),
+        })
+        .expect("body should build");
+
+        assert_eq!(
+            body,
+            json!({
+                "key_id": "key_123",
+                "new_public_key": "ssh-ed25519 BBBB",
+                "algorithm": "ed25519",
+                "new_name": "next",
+                "revoke_old_after_seconds": 300
             })
         );
     }

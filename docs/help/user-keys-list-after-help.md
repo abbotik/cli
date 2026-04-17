@@ -1,8 +1,8 @@
-# User Keys List
+# User Machine Keys List
 
-List the API keys for a user.
+List the tenant machine keys for the current tenant.
 
-Use this to confirm what credentials are already present before adding or removing
-one.
+Use this to confirm what machine credentials are already present before adding,
+rotating, or removing one.
 
 This branch is intentionally concise; use the command itself for the full flag list.

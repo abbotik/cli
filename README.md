@@ -79,7 +79,7 @@ Machine clients should use:
 
 1. `abbot auth machine connect --tenant <tenant> --username <user> --key ~/.config/abbot/abbotik.key`
 2. `abbot auth refresh` when the saved machine token expires; `abbot` auto-detects public-key auth and runs challenge→sign→verify using the saved key path
-3. `abbot keys list`
+3. `abbot user machine-keys list`
 
 Low-level machine-auth commands still exist for manual control:
 

@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cli::{
     AuthSubcommand, AuthTokenSubcommand, Cli, Command, DataSubcommand, KeysSubcommand,
-    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, UserApiKeysSubcommand,
+    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, UserMachineKeysSubcommand,
 };
 
 #[test]
@@ -251,27 +251,74 @@ fn parses_keys_commands() {
         "abbot",
         "keys",
         "create",
-        "--user-id",
-        "user-1",
-        "--public-key",
-        "@machine.pub",
+        "--name",
+        "CI runner",
+        "--expires-at",
+        "2026-12-31T23:59:59Z",
     ])
     .expect("keys create should parse");
 
     match create.command {
         Command::Keys(keys) => match keys.command {
             KeysSubcommand::Create(args) => {
-                assert_eq!(args.user_id.as_deref(), Some("user-1"));
-                assert_eq!(args.public_key.as_deref(), Some("@machine.pub"));
+                assert_eq!(args.name.as_deref(), Some("CI runner"));
+                assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
             }
             other => panic!("expected keys create command, got {other:?}"),
         },
         other => panic!("expected keys command, got {other:?}"),
     }
 
+    let revoke_all =
+        Cli::try_parse_from(["abbot", "keys", "revoke-all"]).expect("keys revoke-all should parse");
+
+    match revoke_all.command {
+        Command::Keys(keys) => match keys.command {
+            KeysSubcommand::RevokeAll => {}
+            other => panic!("expected keys revoke-all command, got {other:?}"),
+        },
+        other => panic!("expected keys command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_user_machine_keys_commands() {
+    let create = Cli::try_parse_from([
+        "abbot",
+        "user",
+        "machine-keys",
+        "create",
+        "--user-id",
+        "user-1",
+        "--public-key",
+        "@machine.pub",
+        "--name",
+        "CI runner",
+        "--expires-at",
+        "2026-12-31T23:59:59Z",
+    ])
+    .expect("user machine-keys create should parse");
+
+    match create.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::MachineKeys(command) => match command.command {
+                UserMachineKeysSubcommand::Create(args) => {
+                    assert_eq!(args.user_id.as_deref(), Some("user-1"));
+                    assert_eq!(args.public_key.as_deref(), Some("@machine.pub"));
+                    assert_eq!(args.name.as_deref(), Some("CI runner"));
+                    assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
+                }
+                other => panic!("expected user machine-keys create command, got {other:?}"),
+            },
+            other => panic!("expected user machine-keys command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
+    }
+
     let rotate = Cli::try_parse_from([
         "abbot",
-        "keys",
+        "user",
+        "machine-keys",
         "rotate",
         "--key-id",
         "key-1",
@@ -280,59 +327,19 @@ fn parses_keys_commands() {
         "--revoke-old-after-seconds",
         "120",
     ])
-    .expect("keys rotate should parse");
+    .expect("user machine-keys rotate should parse");
 
     match rotate.command {
-        Command::Keys(keys) => match keys.command {
-            KeysSubcommand::Rotate(args) => {
-                assert_eq!(args.key_id.as_deref(), Some("key-1"));
-                assert_eq!(args.new_public_key.as_deref(), Some("@next.pub"));
-                assert_eq!(args.revoke_old_after_seconds, Some(120));
-            }
-            other => panic!("expected keys rotate command, got {other:?}"),
-        },
-        other => panic!("expected keys command, got {other:?}"),
-    }
-}
-
-#[test]
-fn parses_user_api_keys_commands() {
-    let create = Cli::try_parse_from([
-        "abbot",
-        "user",
-        "api-keys",
-        "create",
-        "--name",
-        "CI runner",
-        "--expires-at",
-        "2026-12-31T23:59:59Z",
-    ])
-    .expect("user api-keys create should parse");
-
-    match create.command {
         Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::ApiKeys(command) => match command.command {
-                UserApiKeysSubcommand::Create(args) => {
-                    assert_eq!(args.name.as_deref(), Some("CI runner"));
-                    assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
+            crate::cli::UserSubcommand::MachineKeys(command) => match command.command {
+                UserMachineKeysSubcommand::Rotate(args) => {
+                    assert_eq!(args.key_id.as_deref(), Some("key-1"));
+                    assert_eq!(args.new_public_key.as_deref(), Some("@next.pub"));
+                    assert_eq!(args.revoke_old_after_seconds, Some(120));
                 }
-                other => panic!("expected user api-keys create command, got {other:?}"),
+                other => panic!("expected rotate command, got {other:?}"),
             },
-            other => panic!("expected user api-keys command, got {other:?}"),
-        },
-        other => panic!("expected user command, got {other:?}"),
-    }
-
-    let revoke_all = Cli::try_parse_from(["abbot", "user", "api-keys", "revoke-all"])
-        .expect("user api-keys revoke-all should parse");
-
-    match revoke_all.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::ApiKeys(command) => match command.command {
-                UserApiKeysSubcommand::RevokeAll => {}
-                other => panic!("expected revoke-all command, got {other:?}"),
-            },
-            other => panic!("expected user api-keys command, got {other:?}"),
+            other => panic!("expected user machine-keys command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }

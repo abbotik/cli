@@ -12,8 +12,8 @@ larger set of resource-specific branches:
 - `docs` for direct API documentation access
 - `describe`, `data`, `find`, `aggregate`, and `bulk` for model and record work
 - `acls`, `stat`, `tracked`, and `trashed` for record metadata and lifecycle
-- `user` for account and sudo workflows
-- `keys` for tenant-bound machine credentials
+- `user` for account, machine-key, and sudo workflows
+- `keys` for self-service bearer API keys
 - `cron` for scheduled process management
 - `fs` for tenant filesystem access
 - `app` for dynamic application paths

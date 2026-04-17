@@ -1,7 +1,7 @@
 # Keys Create
 
-Add a public key bound to a tenant-local user.
+Create a new bearer API key for the current user.
 
 Common use:
 
-- `abbot keys create --user-id <user-id> --public-key @machine.pub --name ci-runner`
+- `abbot keys create --name ci-runner --expires-at 2026-12-31T23:59:59Z`

@@ -1,5 +1,5 @@
 # Keys Delete
 
-Revoke one machine key by key ID.
+Revoke one bearer API key by key ID.
 
-Use this when a tenant-bound credential should no longer be usable.
+Use this when a user-owned credential should no longer be usable.

@@ -17,6 +17,7 @@ abbot auth provision --tenant acme --username machine_root --public-key @machine
 abbot auth provision --tenant acme --username builder_2 --invite-code <code> --public-key @machine.pub
 abbot auth verify --tenant acme --challenge-id <id> --signature @signature.txt
 abbot keys list
+abbot user machine-keys list
 abbot find query users --where '{"active":true}'
 abbot aggregate run users --count
 abbot bulk export
