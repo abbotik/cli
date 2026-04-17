@@ -1,40 +1,10 @@
 use super::*;
-
-
-#[derive(Debug, Clone, Default, Deserialize)]
-struct TokenClaims {
-    #[serde(default)]
-    auth_type: Option<String>,
-    #[serde(default)]
-    tenant: Option<String>,
-    #[serde(default)]
-    key_id: Option<String>,
-    #[serde(default)]
-    key_fingerprint: Option<String>,
-}
-
-fn decode_token_claims(token: &str) -> anyhow::Result<TokenClaims> {
-    let payload = token
-        .split('.')
-        .nth(1)
-        .ok_or_else(|| anyhow::anyhow!("token is not a valid JWT"))?;
-    let bytes = URL_SAFE_NO_PAD
-        .decode(payload)
-        .map_err(|error| anyhow::anyhow!("failed to decode token payload: {error}"))?;
-    Ok(serde_json::from_slice(&bytes)?)
-}
-
-fn normalize_path_string(path: &str) -> anyhow::Result<String> {
-    let normalized = stdfs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
-    Ok(normalized.to_string_lossy().to_string())
-}
-
-fn source_path_string(source: Option<&str>) -> anyhow::Result<Option<String>> {
-    match source.and_then(|value| value.strip_prefix('@')) {
-        Some(path) => Ok(Some(normalize_path_string(path)?)),
-        None => Ok(None),
-    }
-}
+use super::auth_support::{
+    current_machine_token_claims, decode_token_claims, machine_key_paths,
+    resolve_machine_connect_context, resolve_machine_refresh_context,
+    resolve_saved_machine_paths, update_machine_auth_from_provision,
+    update_machine_auth_from_verify_response, TokenClaims,
+};
 
 fn sign_machine_nonce(private_key_path: &str, nonce: &str) -> anyhow::Result<String> {
     let pem = stdfs::read_to_string(private_key_path)?;
@@ -58,76 +28,29 @@ fn derive_public_key_pem(private_key_path: &str) -> anyhow::Result<String> {
         })
 }
 
-fn update_machine_auth_from_verify_response(
-    config: &mut AbbotikConfig,
-    verify_data: Option<&crate::api::VerifyData>,
-    token: &str,
-    public_key_path: Option<&str>,
-    private_key_path: Option<&str>,
-) -> anyhow::Result<()> {
-    let claims = decode_token_claims(token).unwrap_or_default();
-    let machine_auth = config.machine_auth_mut();
-
-    if let Some(data) = verify_data {
-        machine_auth.tenant = Some(data.tenant.clone());
-        machine_auth.key_id = Some(data.key_id.clone());
-    }
-    if let Some(tenant) = claims.tenant {
-        machine_auth.tenant = Some(tenant);
-    }
-    if let Some(key_id) = claims.key_id {
-        machine_auth.key_id = Some(key_id);
-    }
-    if let Some(fingerprint) = claims.key_fingerprint {
-        machine_auth.key_fingerprint = Some(fingerprint);
-    }
-    if let Some(path) = public_key_path {
-        machine_auth.public_key_path = Some(normalize_path_string(path)?);
-    }
-    if let Some(path) = private_key_path {
-        machine_auth.private_key_path = Some(normalize_path_string(path)?);
-    }
-
-    Ok(())
-}
-
 async fn refresh_machine_auth(
     client: &ApiClient,
     config: &mut AbbotikConfig,
     claims: TokenClaims,
     save_path: Option<&Path>,
 ) -> anyhow::Result<Value> {
-    let machine_auth = config.machine_auth.clone().unwrap_or_default();
-    let tenant = claims.tenant.or(machine_auth.tenant).ok_or_else(|| {
-        anyhow::anyhow!("machine refresh requires a tenant in the saved token or config")
-    })?;
-    let private_key_path = machine_auth.private_key_path.ok_or_else(|| {
-        anyhow::anyhow!("machine refresh requires a saved private key path in local config")
-    })?;
-    let key_id = claims.key_id.or(machine_auth.key_id);
-    let fingerprint = claims.key_fingerprint.or(machine_auth.key_fingerprint);
-
-    if key_id.is_none() && fingerprint.is_none() {
-        return Err(anyhow::anyhow!(
-            "machine refresh requires a saved key id or fingerprint in the token or config"
-        ));
-    }
+    let context = resolve_machine_refresh_context(config, claims)?;
 
     let challenge = client
         .auth_challenge(&ChallengeRequest {
-            tenant: Some(tenant.clone()),
-            key_id,
-            fingerprint,
+            tenant: Some(context.tenant.clone()),
+            key_id: context.key_id,
+            fingerprint: context.fingerprint,
         })
         .await?;
     let challenge_data = challenge
         .data
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("challenge response did not include challenge data"))?;
-    let signature = sign_machine_nonce(&private_key_path, &challenge_data.nonce)?;
+    let signature = sign_machine_nonce(&context.private_key_path, &challenge_data.nonce)?;
     let verify = client
         .auth_verify(&VerifyRequest {
-            tenant: Some(tenant),
+            tenant: Some(context.tenant),
             challenge_id: Some(challenge_data.challenge_id.clone()),
             signature: Some(signature),
         })
@@ -183,19 +106,6 @@ fn save_machine_verify_result(
     Ok(())
 }
 
-fn machine_key_paths(
-    key_source: Option<&str>,
-    public_key_source: Option<&str>,
-) -> anyhow::Result<(String, Option<String>)> {
-    let private_key_path = key_source
-        .map(|value| value.strip_prefix('@').unwrap_or(value))
-        .ok_or_else(|| anyhow::anyhow!("machine connect requires --key <private-key-path>"))?;
-    Ok((
-        normalize_path_string(private_key_path)?,
-        source_path_string(public_key_source)?,
-    ))
-}
-
 fn machine_public_key_pem(
     public_key_source: Option<&str>,
     private_key_path: &str,
@@ -214,42 +124,15 @@ async fn machine_connect(
 ) -> anyhow::Result<()> {
     let (private_key_path, public_key_path) =
         machine_key_paths(args.key.as_deref(), args.public_key.as_deref())?;
-    let token_claims = config
-        .token()
-        .and_then(|token| decode_token_claims(token).ok())
-        .filter(|claims| claims.auth_type.as_deref() == Some("public_key"))
-        .unwrap_or_default();
-    let tenant = args
-        .tenant
-        .clone()
-        .or_else(|| {
-            config
-                .machine_auth
-                .as_ref()
-                .and_then(|machine| machine.tenant.clone())
-        })
-        .or(token_claims.tenant.clone())
-        .ok_or_else(|| {
-            anyhow::anyhow!("machine connect requires --tenant or a saved machine tenant")
-        })?;
+    let token_claims = current_machine_token_claims(config);
+    let context = resolve_machine_connect_context(args.tenant.clone(), config, &token_claims)?;
 
-    let machine_auth = config
-        .machine_auth
-        .clone()
-        .filter(|machine| machine.tenant.as_deref() == Some(tenant.as_str()))
-        .unwrap_or_default();
-    let key_id = machine_auth.key_id.clone().or(token_claims.key_id.clone());
-    let fingerprint = machine_auth
-        .key_fingerprint
-        .clone()
-        .or(token_claims.key_fingerprint.clone());
-
-    if args.invite_code.is_none() && (key_id.is_some() || fingerprint.is_some()) {
+    if args.invite_code.is_none() && (context.key_id.is_some() || context.fingerprint.is_some()) {
         let challenge = client
             .auth_challenge(&ChallengeRequest {
-                tenant: Some(tenant.clone()),
-                key_id,
-                fingerprint,
+                tenant: Some(context.tenant.clone()),
+                key_id: context.key_id,
+                fingerprint: context.fingerprint,
             })
             .await?;
         let challenge_data = challenge
@@ -259,7 +142,7 @@ async fn machine_connect(
         let signature = sign_machine_nonce(&private_key_path, &challenge_data.nonce)?;
         let verify = client
             .auth_verify(&VerifyRequest {
-                tenant: Some(tenant),
+                tenant: Some(context.tenant),
                 challenge_id: Some(challenge_data.challenge_id.clone()),
                 signature: Some(signature),
             })
@@ -294,7 +177,7 @@ async fn machine_connect(
     let public_key = machine_public_key_pem(args.public_key.as_deref(), &private_key_path)?;
     let provision = client
         .auth_provision(&ProvisionRequest {
-            tenant: Some(tenant.clone()),
+            tenant: Some(context.tenant.clone()),
             username: Some(username),
             invite_code: args.invite_code.clone(),
             public_key: Some(public_key),
@@ -309,7 +192,7 @@ async fn machine_connect(
     let signature = sign_machine_nonce(&private_key_path, &provision_data.challenge.nonce)?;
     let verify = client
         .auth_verify(&VerifyRequest {
-            tenant: Some(tenant),
+            tenant: Some(context.tenant),
             challenge_id: Some(provision_data.challenge.challenge_id.clone()),
             signature: Some(signature),
         })
@@ -444,28 +327,15 @@ pub(super) async fn run(
                 })
                 .await?;
 
-            let saved_public_key_path = match args.save_public_key_path.as_deref() {
-                Some(path) => Some(normalize_path_string(path)?),
-                None => source_path_string(args.public_key.as_deref())?,
-            };
-            let saved_private_key_path = args
-                .save_private_key_path
-                .as_deref()
-                .map(normalize_path_string)
-                .transpose()?;
+            let saved_paths = resolve_saved_machine_paths(
+                args.public_key.as_deref(),
+                args.save_public_key_path.as_deref(),
+                args.save_private_key_path.as_deref(),
+            )?;
 
-            if saved_public_key_path.is_some() || saved_private_key_path.is_some() {
+            if saved_paths.public_key_path.is_some() || saved_paths.private_key_path.is_some() {
                 if let Some(data) = response.data.as_ref() {
-                    let machine_auth = config.machine_auth_mut();
-                    machine_auth.tenant = Some(data.tenant.clone());
-                    machine_auth.key_id = Some(data.key.id.clone());
-                    machine_auth.key_fingerprint = Some(data.key.fingerprint.clone());
-                    if let Some(path) = saved_public_key_path {
-                        machine_auth.public_key_path = Some(path);
-                    }
-                    if let Some(path) = saved_private_key_path {
-                        machine_auth.private_key_path = Some(path);
-                    }
+                    update_machine_auth_from_provision(config, data, saved_paths);
                     save_config(config, save_path)?;
                 }
             }

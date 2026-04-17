@@ -27,6 +27,7 @@ mod acls;
 mod aggregate;
 mod app;
 mod auth;
+mod auth_support;
 mod bulk;
 mod cron;
 mod data;
