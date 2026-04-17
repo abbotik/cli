@@ -6,6 +6,15 @@ use crate::cli::{
 };
 
 #[test]
+fn parses_global_config_flag() {
+    let cli = Cli::try_parse_from(["abbot", "--config", "staging", "health"])
+        .expect("global config flag should parse");
+
+    assert_eq!(cli.globals.config.as_deref(), Some("staging"));
+    assert!(matches!(cli.command, Command::Health));
+}
+
+#[test]
 fn parses_auth_token_get_set_clear() {
     let get = Cli::try_parse_from(["abbot", "auth", "token", "get"]).expect("get should parse");
     assert_auth_token_subcommand(get, AuthTokenSubcommand::Get);

@@ -72,6 +72,10 @@ pub struct Cli {
 
 #[derive(Args, Debug, Default)]
 pub struct GlobalOptions {
+    /// Use a named config profile stored under ~/.config/abbot/configs/<name>.toml
+    #[arg(long)]
+    pub config: Option<String>,
+
     /// Override the Abbotik API base URL
     #[arg(long = "base-url")]
     pub base_url: Option<String>,

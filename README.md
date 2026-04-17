@@ -3,6 +3,8 @@
 `abbot` is the Rust CLI for the Abbotik API.
 By default it talks to the public API at `https://api.abbotik.com`.
 
+The CLI stores its default config at `~/.config/abbot/config.toml`. Pass `--config <name>` to use an isolated profile at `~/.config/abbot/configs/<name>.toml` instead.
+
 ## Release and install
 
 The release process is tag-based and publishes GitHub Release assets for:
@@ -44,6 +46,17 @@ ABBOTIK_CLI_INSTALL_DIR="$HOME/bin" \
 ## Current state
 
 The CLI now has a shared API helper layer plus command-family dispatch wired up to Abbotik routes. The `data` family is aligned to Abbotik's model, record, relationship, and nested-child route shapes, with query flags threaded through the request helpers.
+
+For a new user, the intended first steps are:
+
+```bash
+abbot --config staging auth login --tenant acme --username alice --password secret
+abbot --config staging data list rooms
+```
+
+Each named config keeps its own saved token, base URL overrides, output format, and machine-auth metadata.
+
+For scripting, `ABBOTIK_CONFIG=<name>` selects the same profile as `--config <name>`, and the CLI flag wins when both are present.
 
 For a new user, the intended first steps are:
 

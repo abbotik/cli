@@ -1,5 +1,6 @@
 use std::{
     env, fs,
+    io::ErrorKind,
     path::{Path, PathBuf},
 };
 
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::AbbotikError;
 
 const CONFIG_DIR_NAME: &str = "abbot";
+const CONFIG_DIR_PROFILES_NAME: &str = "configs";
 const CONFIG_FILE_NAME: &str = "config.toml";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -61,8 +63,8 @@ impl AbbotikConfig {
         config
     }
 
-    pub fn load_effective() -> Result<Self, AbbotikError> {
-        let mut config = Self::load().unwrap_or_default();
+    pub fn load_effective(profile: Option<&str>) -> Result<Self, AbbotikError> {
+        let mut config = Self::load(profile)?;
         config.apply_env_overrides();
         Ok(config)
     }
@@ -81,17 +83,42 @@ impl AbbotikConfig {
         }
     }
 
-    pub fn config_path() -> Result<PathBuf, AbbotikError> {
+    pub fn config_path(profile: Option<&str>) -> Result<PathBuf, AbbotikError> {
         let home = dirs::home_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
-        Ok(home
-            .join(".config")
-            .join(CONFIG_DIR_NAME)
-            .join(CONFIG_FILE_NAME))
+        let config_root = home.join(".config").join(CONFIG_DIR_NAME);
+
+        match profile.filter(|value| !value.trim().is_empty()) {
+            Some(profile) => Ok(config_root
+                .join(CONFIG_DIR_PROFILES_NAME)
+                .join(format!("{profile}.toml"))),
+            None => Ok(config_root.join(CONFIG_FILE_NAME)),
+        }
     }
 
-    pub fn load() -> Result<Self, AbbotikError> {
-        let path = Self::config_path()?;
-        Self::load_from_path(&path)
+    pub fn selected_profile(cli_profile: Option<&str>) -> Option<String> {
+        cli_profile
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                env::var("ABBOTIK_CONFIG")
+                    .ok()
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+            })
+    }
+
+    pub fn load(profile: Option<&str>) -> Result<Self, AbbotikError> {
+        let path = Self::config_path(profile)?;
+        match Self::load_from_path(&path) {
+            Ok(config) => Ok(config),
+            Err(AbbotikError::ConfigRead { source, .. })
+                if source.kind() == ErrorKind::NotFound =>
+            {
+                Ok(Self::default())
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, AbbotikError> {
@@ -103,8 +130,8 @@ impl AbbotikConfig {
         toml::from_str(&raw).map_err(AbbotikError::ConfigDeserialize)
     }
 
-    pub fn save(&self) -> Result<(), AbbotikError> {
-        let path = Self::config_path()?;
+    pub fn save(&self, profile: Option<&str>) -> Result<(), AbbotikError> {
+        let path = Self::config_path(profile)?;
         self.save_to_path(&path)
     }
 
@@ -185,14 +212,53 @@ mod tests {
     }
 
     #[test]
-    fn config_path_uses_home_dot_config_abbot() {
+    fn default_config_path_uses_home_dot_config_abbot() {
         let home = dirs::home_dir().expect("home directory should exist in tests");
         let expected = home.join(".config").join("abbot").join("config.toml");
 
         assert_eq!(
-            AbbotikConfig::config_path().expect("config path should resolve"),
+            AbbotikConfig::config_path(None).expect("config path should resolve"),
             expected
         );
+    }
+
+    #[test]
+    fn named_config_path_uses_profile_directory() {
+        let home = dirs::home_dir().expect("home directory should exist in tests");
+        let expected = home
+            .join(".config")
+            .join("abbot")
+            .join("configs")
+            .join("staging.toml");
+
+        assert_eq!(
+            AbbotikConfig::config_path(Some("staging")).expect("config path should resolve"),
+            expected
+        );
+    }
+
+    #[test]
+    fn selected_profile_prefers_cli_then_env_then_none() {
+        unsafe {
+            std::env::remove_var("ABBOTIK_CONFIG");
+        }
+        assert_eq!(AbbotikConfig::selected_profile(None), None);
+
+        unsafe {
+            std::env::set_var("ABBOTIK_CONFIG", "staging");
+        }
+        assert_eq!(
+            AbbotikConfig::selected_profile(None),
+            Some("staging".to_string())
+        );
+        assert_eq!(
+            AbbotikConfig::selected_profile(Some("prod")),
+            Some("prod".to_string())
+        );
+
+        unsafe {
+            std::env::remove_var("ABBOTIK_CONFIG");
+        }
     }
 
     #[test]
@@ -270,6 +336,21 @@ mod tests {
                 .and_then(|m| m.private_key_path.as_deref()),
             Some("/tmp/machine.key")
         );
+    }
+
+    #[test]
+    fn load_from_missing_path_reports_config_read() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("abbot-missing-{stamp}.toml"));
+
+        let loaded = AbbotikConfig::load_from_path(&path);
+        assert!(matches!(
+            loaded,
+            Err(super::AbbotikError::ConfigRead { .. })
+        ));
     }
 }
 

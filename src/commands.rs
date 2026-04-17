@@ -33,16 +33,17 @@ use crate::{
 };
 
 pub async fn run(cli: Cli) -> anyhow::Result<()> {
-    let mut config = AbbotikConfig::load_effective()?;
-    let save_path = AbbotikConfig::config_path().ok();
+    let selected_profile = AbbotikConfig::selected_profile(cli.globals.config.as_deref());
+    let mut config = AbbotikConfig::load_effective(selected_profile.as_deref())?;
+    let save_path = AbbotikConfig::config_path(selected_profile.as_deref()).ok();
 
-    if let Some(base_url) = cli.globals.base_url {
-        config.base_url = base_url;
+    if let Some(base_url) = cli.globals.base_url.as_ref() {
+        config.base_url = base_url.clone();
     }
-    if let Some(token) = cli.globals.token {
-        config.token = Some(token);
+    if let Some(token) = cli.globals.token.as_ref() {
+        config.token = Some(token.clone());
     }
-    if let Some(format) = cli.globals.format {
+    if let Some(format) = cli.globals.format.as_ref() {
         config.output_format = format.parse().unwrap_or_default();
     }
 
