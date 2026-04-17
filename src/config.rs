@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::AbbotikError;
 
 const CONFIG_DIR_NAME: &str = "abbot";
+const CONFIG_DIR_CLI_NAME: &str = "cli";
 const CONFIG_DIR_PROFILES_NAME: &str = "configs";
 const CONFIG_FILE_NAME: &str = "config.toml";
 
@@ -85,7 +86,10 @@ impl AbbotikConfig {
 
     pub fn config_path(profile: Option<&str>) -> Result<PathBuf, AbbotikError> {
         let home = dirs::home_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
-        let config_root = home.join(".config").join(CONFIG_DIR_NAME);
+        let config_root = home
+            .join(".config")
+            .join(CONFIG_DIR_NAME)
+            .join(CONFIG_DIR_CLI_NAME);
 
         match profile.filter(|value| !value.trim().is_empty()) {
             Some(profile) => Ok(config_root
@@ -212,9 +216,13 @@ mod tests {
     }
 
     #[test]
-    fn default_config_path_uses_home_dot_config_abbot() {
+    fn default_config_path_uses_home_dot_config_abbot_cli() {
         let home = dirs::home_dir().expect("home directory should exist in tests");
-        let expected = home.join(".config").join("abbot").join("config.toml");
+        let expected = home
+            .join(".config")
+            .join("abbot")
+            .join("cli")
+            .join("config.toml");
 
         assert_eq!(
             AbbotikConfig::config_path(None).expect("config path should resolve"),
@@ -228,6 +236,7 @@ mod tests {
         let expected = home
             .join(".config")
             .join("abbot")
+            .join("cli")
             .join("configs")
             .join("staging.toml");
 

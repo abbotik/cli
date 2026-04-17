@@ -3,7 +3,7 @@
 `abbot` is the Rust CLI for the Abbotik API.
 By default it talks to the public API at `https://api.abbotik.com`.
 
-The CLI stores its default config at `~/.config/abbot/config.toml`. Pass `--config <name>` to use an isolated profile at `~/.config/abbot/configs/<name>.toml` instead.
+The CLI stores its default config at `~/.config/abbot/cli/config.toml`. Pass `--config <name>` to use an isolated profile at `~/.config/abbot/cli/configs/<name>.toml` instead.
 
 ## Release and install
 

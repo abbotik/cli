@@ -1,0 +1,174 @@
+pub(super) use std::{
+    fs as stdfs,
+    io::{self, IsTerminal, Read},
+    path::{Path, PathBuf},
+};
+
+pub(super) use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+pub(super) use ed25519_dalek::{
+    pkcs8::{DecodePrivateKey, EncodePublicKey},
+    Signer, SigningKey,
+};
+pub(super) use reqwest::Method;
+pub(super) use serde::Deserialize;
+pub(super) use serde_json::{json, Map, Value};
+
+pub(super) use crate::{
+    api::{
+        ApiClient, ChallengeRequest, DissolveConfirmRequest, DissolveRequest, InviteRequest,
+        LoginRequest, ProvisionRequest, RefreshRequest, RegisterRequest, VerifyData, VerifyRequest,
+    },
+    cli::*,
+    config::AbbotikConfig,
+    data as data_helpers,
+};
+
+mod acls;
+mod aggregate;
+mod app;
+mod auth;
+mod bulk;
+mod cron;
+mod data;
+mod describe;
+mod docs;
+mod find;
+mod fs;
+mod keys;
+mod llm;
+mod public;
+mod stat;
+mod tracked;
+mod trashed;
+mod user;
+
+pub async fn run(cli: Cli) -> anyhow::Result<()> {
+    let selected_profile = AbbotikConfig::selected_profile(cli.globals.config.as_deref());
+    let mut config = AbbotikConfig::load_effective(selected_profile.as_deref())?;
+    let save_path = AbbotikConfig::config_path(selected_profile.as_deref()).ok();
+
+    if let Some(base_url) = cli.globals.base_url.as_ref() {
+        config.base_url = base_url.clone();
+    }
+    if let Some(token) = cli.globals.token.as_ref() {
+        config.token = Some(token.clone());
+    }
+    if let Some(format) = cli.globals.format.as_ref() {
+        config.output_format = format.parse().unwrap_or_default();
+    }
+
+    let client = ApiClient::new(config.clone())?;
+
+    match cli.command {
+        Command::Public(command) => public::run(command, &client).await?,
+        Command::Auth(command) => auth::run(command, &mut config, &client, save_path.as_deref()).await?,
+        Command::Health => print_json(&client.health().await?)?,
+        Command::Docs(command) => docs::run(command, &client).await?,
+        Command::Describe(command) => describe::run(command, &client).await?,
+        Command::Data(command) => data::run(command, &client).await?,
+        Command::Find(command) => find::run(command, &client).await?,
+        Command::Aggregate(command) => aggregate::run(command, &client).await?,
+        Command::Bulk(command) => bulk::run(command, &client).await?,
+        Command::Acls(command) => acls::run(command, &client).await?,
+        Command::Stat(command) => stat::run(command, &client).await?,
+        Command::Tracked(command) => tracked::run(command, &client).await?,
+        Command::Trashed(command) => trashed::run(command, &client).await?,
+        Command::User(command) => user::run(command, &client).await?,
+        Command::Keys(command) => keys::run(command, &client).await?,
+        Command::Llm(command) => llm::run(command, &client).await?,
+        Command::Cron(command) => cron::run(command, &client).await?,
+        Command::Fs(command) => fs::run(command, &client).await?,
+        Command::App(command) => app::run(command, &client).await?,
+    }
+
+    Ok(())
+}
+
+fn print_json<T: serde::Serialize>(value: &T) -> anyhow::Result<()> {
+    let text = serde_json::to_string_pretty(value)?;
+    println!("{text}");
+    Ok(())
+}
+
+fn print_text(value: &str) -> anyhow::Result<()> {
+    println!("{value}");
+    Ok(())
+}
+
+fn save_config(config: &AbbotikConfig, save_path: Option<&Path>) -> anyhow::Result<()> {
+    if let Some(path) = save_path {
+        config.save_to_path(path)?;
+    }
+    Ok(())
+}
+
+fn read_stdin_or_empty() -> anyhow::Result<String> {
+    if io::stdin().is_terminal() {
+        return Ok(String::new());
+    }
+
+    let mut buffer = String::new();
+    let mut stdin = io::stdin();
+    if stdin.read_to_string(&mut buffer).is_ok() && !buffer.trim().is_empty() {
+        return Ok(buffer);
+    }
+    Ok(String::new())
+}
+
+fn read_json_body_or_default(default: Value) -> anyhow::Result<Value> {
+    let raw = read_stdin_or_empty()?;
+    if raw.trim().is_empty() {
+        return Ok(default);
+    }
+
+    Ok(serde_json::from_str(&raw)?)
+}
+
+fn read_json_source_or_default(source: Option<&str>, default: Value) -> anyhow::Result<Value> {
+    match source {
+        Some(source) if !source.is_empty() => read_json_source(source),
+        _ => Ok(default),
+    }
+}
+
+fn read_json_source(source: &str) -> anyhow::Result<Value> {
+    let raw = if source == "-" {
+        read_stdin_or_empty()?
+    } else if let Some(path) = source.strip_prefix('@') {
+        stdfs::read_to_string(path)?
+    } else {
+        source.to_string()
+    };
+
+    if raw.trim().is_empty() {
+        return Ok(Value::Null);
+    }
+
+    Ok(serde_json::from_str(&raw)?)
+}
+
+fn read_secret_source_option(source: Option<&str>) -> anyhow::Result<Option<String>> {
+    source.map(read_secret_source).transpose()
+}
+
+fn read_secret_source(source: &str) -> anyhow::Result<String> {
+    let raw = if source == "-" {
+        read_stdin_or_empty()?
+    } else if let Some(path) = source.strip_prefix('@') {
+        stdfs::read_to_string(path)?
+    } else {
+        source.to_string()
+    };
+
+    Ok(trim_one_trailing_newline(raw))
+}
+
+fn trim_one_trailing_newline(mut value: String) -> String {
+    if value.ends_with('\n') {
+        value.pop();
+        if value.ends_with('\r') {
+            value.pop();
+        }
+    }
+    value
+}
