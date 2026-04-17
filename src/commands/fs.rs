@@ -38,3 +38,43 @@ fn fs_body_text(options: &FsOptions) -> anyhow::Result<String> {
         None => read_stdin_or_empty(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::fs_body_text;
+    use crate::cli::FsOptions;
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[test]
+    fn fs_body_text_returns_inline_body() {
+        let body = fs_body_text(&FsOptions {
+            stat: false,
+            body: Some("hello".to_string()),
+        })
+        .expect("body should build");
+
+        assert_eq!(body, "hello");
+    }
+
+    #[test]
+    fn fs_body_text_reads_at_prefixed_file() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("abbot-fs-body-{stamp}.txt"));
+        fs::write(&path, "from-file").expect("temp file should write");
+
+        let body = fs_body_text(&FsOptions {
+            stat: false,
+            body: Some(format!("@{}", path.display())),
+        })
+        .expect("body should read");
+
+        assert_eq!(body, "from-file");
+        let _ = fs::remove_file(path);
+    }
+}

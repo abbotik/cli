@@ -1,5 +1,4 @@
 use super::*;
-use super::auth::vec_or_none;
 
 pub(super) async fn run(command: UserCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
@@ -189,4 +188,100 @@ fn user_password_body(args: UserPasswordCommand) -> anyhow::Result<PasswordBody>
         id: args.id,
         body: Value::Object(object),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        user_api_keys_create_body, user_create_body, user_invite_request, user_list_query,
+        user_password_body, PasswordBody,
+    };
+    use crate::cli::{
+        UserApiKeysCreateCommand, UserCreateCommand, UserInviteCommand, UserListCommand,
+        UserPasswordCommand,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn user_invite_request_omits_empty_access_lists() {
+        let request = user_invite_request(UserInviteCommand {
+            username: Some("alice".to_string()),
+            invite_type: Some("human".to_string()),
+            access: Some("full".to_string()),
+            access_read: Vec::new(),
+            access_edit: vec!["rooms:edit".to_string()],
+            access_full: Vec::new(),
+            expires_in: Some(3600),
+        });
+
+        assert_eq!(request.username.as_deref(), Some("alice"));
+        assert_eq!(request.access_read, None);
+        assert_eq!(request.access_edit, Some(vec!["rooms:edit".to_string()]));
+        assert_eq!(request.access_full, None);
+    }
+
+    #[test]
+    fn user_list_query_includes_limit_and_offset() {
+        let query = user_list_query(&UserListCommand {
+            limit: Some(10),
+            offset: Some(20),
+        });
+        assert_eq!(
+            query,
+            vec![
+                ("limit".to_string(), "10".to_string()),
+                ("offset".to_string(), "20".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn user_create_body_prefers_inline_json() {
+        let body = user_create_body(UserCreateCommand {
+            body: Some("{\"name\":\"alice\"}".to_string()),
+            name: None,
+            auth: None,
+            access: None,
+        })
+        .expect("body should parse");
+
+        assert_eq!(body, json!({"name": "alice"}));
+    }
+
+    #[test]
+    fn user_api_keys_create_body_builds_object_from_flags() {
+        let body = user_api_keys_create_body(UserApiKeysCreateCommand {
+            body: None,
+            name: Some("bot".to_string()),
+            expires_at: Some("2026-04-20T00:00:00Z".to_string()),
+        })
+        .expect("body should build");
+
+        assert_eq!(
+            body,
+            json!({
+                "name": "bot",
+                "expires_at": "2026-04-20T00:00:00Z"
+            })
+        );
+    }
+
+    #[test]
+    fn user_password_body_uses_flag_values_when_present() {
+        let PasswordBody { id, body } = user_password_body(UserPasswordCommand {
+            id: "user_123".to_string(),
+            current_password: Some("old".to_string()),
+            new_password: Some("new".to_string()),
+        })
+        .expect("body should build");
+
+        assert_eq!(id, "user_123");
+        assert_eq!(
+            body,
+            json!({
+                "current_password": "old",
+                "new_password": "new"
+            })
+        );
+    }
 }

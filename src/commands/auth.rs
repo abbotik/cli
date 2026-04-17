@@ -206,14 +206,6 @@ fn machine_public_key_pem(
     }
 }
 
-pub(super) fn vec_or_none(values: Vec<String>) -> Option<Vec<String>> {
-    if values.is_empty() {
-        None
-    } else {
-        Some(values)
-    }
-}
-
 async fn machine_connect(
     args: crate::cli::AuthMachineConnectCommand,
     config: &mut AbbotikConfig,

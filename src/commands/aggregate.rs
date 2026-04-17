@@ -91,3 +91,74 @@ fn aggregate_body(options: &AggregateOptions) -> anyhow::Result<Value> {
 
     Ok(Value::Object(object))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{aggregate_body, aggregate_query};
+    use crate::cli::AggregateOptions;
+    use serde_json::json;
+
+    #[test]
+    fn aggregate_query_serializes_where_json() {
+        let query = aggregate_query(&AggregateOptions {
+            count: true,
+            sum: Some("tokens".to_string()),
+            avg: None,
+            min: None,
+            max: None,
+            r#where: Some("{\"status\":\"open\"}".to_string()),
+            body: None,
+        })
+        .expect("query should build");
+
+        assert_eq!(
+            query,
+            vec![
+                ("count".to_string(), String::new()),
+                ("sum".to_string(), "tokens".to_string()),
+                ("where".to_string(), "{\"status\":\"open\"}".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn aggregate_body_builds_from_flags() {
+        let body = aggregate_body(&AggregateOptions {
+            count: true,
+            sum: Some("tokens".to_string()),
+            avg: None,
+            min: None,
+            max: None,
+            r#where: Some("{\"status\":\"open\"}".to_string()),
+            body: None,
+        })
+        .expect("body should build");
+
+        assert_eq!(
+            body,
+            json!({
+                "where": { "status": "open" },
+                "aggregate": {
+                    "count": { "$count": "*" },
+                    "sum": { "$sum": "tokens" }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn aggregate_body_rejects_non_object_inline_body() {
+        let error = aggregate_body(&AggregateOptions {
+            count: false,
+            sum: None,
+            avg: None,
+            min: None,
+            max: None,
+            r#where: None,
+            body: Some("[1,2,3]".to_string()),
+        })
+        .expect_err("non-object body should fail");
+
+        assert!(error.to_string().contains("JSON object"));
+    }
+}

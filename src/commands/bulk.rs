@@ -73,3 +73,55 @@ fn bulk_model_body(options: &BulkOptions, model: &str, operation: &str) -> anyho
         ]
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{bulk_body, bulk_model_body};
+    use crate::cli::BulkOptions;
+    use serde_json::json;
+
+    #[test]
+    fn bulk_body_requires_operations_array_key() {
+        let error = bulk_body(json!({"not_operations": []})).expect_err("body should fail");
+        assert!(error.to_string().contains("operations"));
+    }
+
+    #[test]
+    fn bulk_model_body_wraps_inline_array_for_operation() {
+        let body = bulk_model_body(
+            &BulkOptions {
+                body: Some("[{\"id\":\"room_1\"}]".to_string()),
+            },
+            "rooms",
+            "update-all",
+        )
+        .expect("body should build");
+
+        assert_eq!(
+            body,
+            json!({
+                "operations": [
+                    {
+                        "operation": "update-all",
+                        "model": "rooms",
+                        "data": [{ "id": "room_1" }]
+                    }
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn bulk_model_body_rejects_non_array_inline_body() {
+        let error = bulk_model_body(
+            &BulkOptions {
+                body: Some("{\"id\":\"room_1\"}".to_string()),
+            },
+            "rooms",
+            "create-all",
+        )
+        .expect_err("body should fail");
+
+        assert!(error.to_string().contains("JSON array"));
+    }
+}

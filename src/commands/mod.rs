@@ -1,6 +1,6 @@
 pub(super) use std::{
     fs as stdfs,
-    io::{self, IsTerminal, Read},
+    io::{self as stdio, IsTerminal, Read},
     path::{Path, PathBuf},
 };
 
@@ -34,13 +34,21 @@ mod describe;
 mod docs;
 mod find;
 mod fs;
+mod io;
 mod keys;
 mod llm;
 mod public;
+mod shared;
 mod stat;
 mod tracked;
 mod trashed;
 mod user;
+
+use self::io::{
+    read_json_body_or_default, read_json_source, read_json_source_or_default,
+    read_secret_source, read_secret_source_option, read_stdin_or_empty,
+};
+use self::shared::vec_or_none;
 
 pub async fn run(cli: Cli) -> anyhow::Result<()> {
     let selected_profile = AbbotikConfig::selected_profile(cli.globals.config.as_deref());
@@ -100,75 +108,4 @@ fn save_config(config: &AbbotikConfig, save_path: Option<&Path>) -> anyhow::Resu
         config.save_to_path(path)?;
     }
     Ok(())
-}
-
-fn read_stdin_or_empty() -> anyhow::Result<String> {
-    if io::stdin().is_terminal() {
-        return Ok(String::new());
-    }
-
-    let mut buffer = String::new();
-    let mut stdin = io::stdin();
-    if stdin.read_to_string(&mut buffer).is_ok() && !buffer.trim().is_empty() {
-        return Ok(buffer);
-    }
-    Ok(String::new())
-}
-
-fn read_json_body_or_default(default: Value) -> anyhow::Result<Value> {
-    let raw = read_stdin_or_empty()?;
-    if raw.trim().is_empty() {
-        return Ok(default);
-    }
-
-    Ok(serde_json::from_str(&raw)?)
-}
-
-fn read_json_source_or_default(source: Option<&str>, default: Value) -> anyhow::Result<Value> {
-    match source {
-        Some(source) if !source.is_empty() => read_json_source(source),
-        _ => Ok(default),
-    }
-}
-
-fn read_json_source(source: &str) -> anyhow::Result<Value> {
-    let raw = if source == "-" {
-        read_stdin_or_empty()?
-    } else if let Some(path) = source.strip_prefix('@') {
-        stdfs::read_to_string(path)?
-    } else {
-        source.to_string()
-    };
-
-    if raw.trim().is_empty() {
-        return Ok(Value::Null);
-    }
-
-    Ok(serde_json::from_str(&raw)?)
-}
-
-fn read_secret_source_option(source: Option<&str>) -> anyhow::Result<Option<String>> {
-    source.map(read_secret_source).transpose()
-}
-
-fn read_secret_source(source: &str) -> anyhow::Result<String> {
-    let raw = if source == "-" {
-        read_stdin_or_empty()?
-    } else if let Some(path) = source.strip_prefix('@') {
-        stdfs::read_to_string(path)?
-    } else {
-        source.to_string()
-    };
-
-    Ok(trim_one_trailing_newline(raw))
-}
-
-fn trim_one_trailing_newline(mut value: String) -> String {
-    if value.ends_with('\n') {
-        value.pop();
-        if value.ends_with('\r') {
-            value.pop();
-        }
-    }
-    value
 }
