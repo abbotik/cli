@@ -41,10 +41,16 @@ const USER_PASSWORD_AFTER_HELP: &str = include_str!("../docs/help/user-password-
 const USER_SUDO_AFTER_HELP: &str = include_str!("../docs/help/user-sudo-after-help.md");
 const USER_FAKE_AFTER_HELP: &str = include_str!("../docs/help/user-fake-after-help.md");
 const USER_INVITE_AFTER_HELP: &str = include_str!("../docs/help/user-invite-after-help.md");
+const USER_KEYS_AFTER_HELP: &str = include_str!("../docs/help/user-keys-after-help.md");
+const USER_KEYS_CREATE_AFTER_HELP: &str =
+    include_str!("../docs/help/user-keys-create-after-help.md");
 const KEYS_AFTER_HELP: &str = include_str!("../docs/help/keys-after-help.md");
 const KEYS_CREATE_AFTER_HELP: &str = include_str!("../docs/help/keys-create-after-help.md");
 const KEYS_ROTATE_AFTER_HELP: &str = include_str!("../docs/help/keys-rotate-after-help.md");
 const KEYS_DELETE_AFTER_HELP: &str = include_str!("../docs/help/keys-delete-after-help.md");
+const LLM_AFTER_HELP: &str = include_str!("../docs/help/llm-after-help.md");
+const LLM_ROOM_AFTER_HELP: &str = include_str!("../docs/help/llm-room-after-help.md");
+const LLM_FACTORY_AFTER_HELP: &str = include_str!("../docs/help/llm-factory-after-help.md");
 const CRON_AFTER_HELP: &str = include_str!("../docs/help/cron-after-help.md");
 const FS_AFTER_HELP: &str = include_str!("../docs/help/fs-after-help.md");
 const APP_AFTER_HELP: &str = include_str!("../docs/help/app-after-help.md");
@@ -112,6 +118,8 @@ pub enum Command {
     User(UserCommand),
     /// Tenant machine key management
     Keys(KeysCommand),
+    /// LLM rooms, factory runs, and provider discovery
+    Llm(LlmCommand),
     /// Scheduled process workflows
     Cron(CronCommand),
     /// Tenant filesystem workflows
@@ -787,6 +795,7 @@ pub enum UserSubcommand {
     List(UserListCommand),
     Create(UserCreateCommand),
     Invite(UserInviteCommand),
+    ApiKeys(UserApiKeysCommand),
     Get(UserIdArg),
     Update(UserIdArg),
     Delete(UserDeleteCommand),
@@ -857,6 +866,38 @@ pub struct UserInviteCommand {
     /// Invite lifetime in seconds
     #[arg(long = "expires-in")]
     pub expires_in: Option<u64>,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = USER_KEYS_AFTER_HELP)]
+pub struct UserApiKeysCommand {
+    #[command(subcommand)]
+    pub command: UserApiKeysSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+#[command(after_long_help = USER_KEYS_AFTER_HELP)]
+pub enum UserApiKeysSubcommand {
+    List,
+    Create(UserApiKeysCreateCommand),
+    Delete(UserApiKeyIdArg),
+    RevokeAll,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = USER_KEYS_CREATE_AFTER_HELP)]
+pub struct UserApiKeysCreateCommand {
+    /// JSON body from stdin or use --body to inline it
+    #[arg(long)]
+    pub body: Option<String>,
+
+    /// Friendly name for the API key
+    #[arg(long)]
+    pub name: Option<String>,
+
+    /// ISO 8601 expiration timestamp
+    #[arg(long = "expires-at")]
+    pub expires_at: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -955,6 +996,84 @@ pub struct KeysRotateCommand {
 #[command(after_long_help = KEYS_DELETE_AFTER_HELP)]
 pub struct KeysDeleteCommand {
     pub key_id: String,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = LLM_AFTER_HELP)]
+pub struct LlmCommand {
+    #[command(subcommand)]
+    pub command: LlmSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+#[command(after_long_help = LLM_AFTER_HELP)]
+pub enum LlmSubcommand {
+    Providers,
+    Models,
+    Skills,
+    Room(LlmRoomCommand),
+    Factory(LlmFactoryCommand),
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = LLM_ROOM_AFTER_HELP)]
+pub struct LlmRoomCommand {
+    #[command(subcommand)]
+    pub command: LlmRoomSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+#[command(after_long_help = LLM_ROOM_AFTER_HELP)]
+pub enum LlmRoomSubcommand {
+    List,
+    Create,
+    Get(RoomIdArg),
+    Update(RoomIdArg),
+    Message(RoomIdArg),
+    Wake(RoomIdArg),
+    Events(LlmRoomEventsCommand),
+    History(RoomIdArg),
+    Interrupt(RoomIdArg),
+    Release(RoomIdArg),
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = LLM_ROOM_AFTER_HELP)]
+pub struct LlmRoomEventsCommand {
+    pub id: String,
+
+    /// Keep the SSE stream attached after replaying durable history
+    #[arg(long)]
+    pub follow: bool,
+}
+
+#[derive(Args, Debug)]
+#[command(after_long_help = LLM_FACTORY_AFTER_HELP)]
+pub struct LlmFactoryCommand {
+    #[command(subcommand)]
+    pub command: LlmFactorySubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+#[command(after_long_help = LLM_FACTORY_AFTER_HELP)]
+pub enum LlmFactorySubcommand {
+    List,
+    Create,
+    Get(FactoryRunIdArg),
+    Status(FactoryRunIdArg),
+    Checkpoints(FactoryRunIdArg),
+    CreateCheckpoint(FactoryRunIdArg),
+    Stages(FactoryRunIdArg),
+    CreateStage(FactoryRunIdArg),
+    UpdateStage(FactoryRunStageArg),
+    Issues(FactoryRunIdArg),
+    CreateIssue(FactoryRunIdArg),
+    UpdateIssue(FactoryRunIssueArg),
+    Artifacts(FactoryRunIdArg),
+    Advance(FactoryRunIdArg),
+    Verify(FactoryRunIdArg),
+    GateCheck(FactoryRunIdArg),
+    Review(FactoryRunIdArg),
 }
 
 #[derive(Args, Debug)]
@@ -1068,6 +1187,11 @@ pub struct UserIdArg {
 }
 
 #[derive(Args, Debug, Clone)]
+pub struct UserApiKeyIdArg {
+    pub key_id: String,
+}
+
+#[derive(Args, Debug, Clone)]
 pub struct CronIdArg {
     pub pid: String,
 }
@@ -1075,4 +1199,26 @@ pub struct CronIdArg {
 #[derive(Args, Debug, Clone)]
 pub struct PathArg {
     pub path: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct RoomIdArg {
+    pub id: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FactoryRunIdArg {
+    pub id: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FactoryRunStageArg {
+    pub id: String,
+    pub stage_id: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FactoryRunIssueArg {
+    pub id: String,
+    pub issue_id: String,
 }

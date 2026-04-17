@@ -22,9 +22,11 @@ use crate::{
         AclsCommand, AggregateCommand, AggregateOptions, AppCommand, AuthCommand, BulkCommand,
         BulkOptions, Cli, Command, CronCommand, DataCommand, DescribeCommand, DocsCommand,
         FindCommand, FindOptions, FsCommand, FsOptions, KeysCommand, KeysCreateCommand,
-        KeysRotateCommand, KeysSubcommand, PublicCommand, StatCommand, TrackedCommand,
-        TrashedCommand, UserCommand, UserCreateCommand, UserInviteCommand, UserListCommand,
-        UserPasswordCommand, UserSubcommand,
+        KeysRotateCommand, KeysSubcommand, LlmCommand, LlmFactoryCommand, LlmFactorySubcommand,
+        LlmRoomCommand, LlmRoomSubcommand, LlmSubcommand, PublicCommand, StatCommand,
+        TrackedCommand, TrashedCommand, UserApiKeysCreateCommand, UserApiKeysSubcommand,
+        UserCommand, UserCreateCommand, UserInviteCommand, UserListCommand, UserPasswordCommand,
+        UserSubcommand,
     },
     config::AbbotikConfig,
     data,
@@ -64,6 +66,7 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Trashed(command) => trashed(command, &client).await?,
         Command::User(command) => user(command, &client).await?,
         Command::Keys(command) => keys(command, &client).await?,
+        Command::Llm(command) => llm(command, &client).await?,
         Command::Cron(command) => cron(command, &client).await?,
         Command::Fs(command) => fs(command, &client).await?,
         Command::App(command) => app(command, &client).await?,
@@ -1060,6 +1063,29 @@ async fn user(command: UserCommand, client: &ApiClient) -> anyhow::Result<()> {
             let request = user_invite_request(args);
             print_json(&client.user_invite(&request).await?)?;
         }
+        UserSubcommand::ApiKeys(command) => match command.command {
+            UserApiKeysSubcommand::List => {
+                print_json(&client.get_json::<Value>("/api/user/api-keys").await?)?
+            }
+            UserApiKeysSubcommand::Create(args) => {
+                let body = user_api_keys_create_body(args)?;
+                print_json(
+                    &client
+                        .post_json::<_, Value>("/api/user/api-keys", &body)
+                        .await?,
+                )?
+            }
+            UserApiKeysSubcommand::Delete(arg) => print_json(
+                &client
+                    .delete_json::<Value>(&format!("/api/user/api-keys/{}", arg.key_id))
+                    .await?,
+            )?,
+            UserApiKeysSubcommand::RevokeAll => print_json(
+                &client
+                    .post_json::<_, Value>("/api/user/api-keys/revoke-all", &json!({}))
+                    .await?,
+            )?,
+        },
         UserSubcommand::Get(arg) => print_json(
             &client
                 .get_json::<Value>(&format!("/api/user/{}", arg.id))
@@ -1130,6 +1156,207 @@ async fn keys(command: KeysCommand, client: &ApiClient) -> anyhow::Result<()> {
         KeysSubcommand::Delete(arg) => print_json(
             &client
                 .delete_json::<Value>(&format!("/api/keys/{}", arg.key_id))
+                .await?,
+        )?,
+    }
+    Ok(())
+}
+
+async fn llm(command: LlmCommand, client: &ApiClient) -> anyhow::Result<()> {
+    match command.command {
+        LlmSubcommand::Providers => print_json(&client.get_json::<Value>("/llm/providers").await?)?,
+        LlmSubcommand::Models => {
+            print_json(&client.get_json::<Value>("/llm/providers/models").await?)?
+        }
+        LlmSubcommand::Skills => print_json(&client.get_json::<Value>("/llm/skills").await?)?,
+        LlmSubcommand::Room(command) => llm_room(command, client).await?,
+        LlmSubcommand::Factory(command) => llm_factory(command, client).await?,
+    }
+    Ok(())
+}
+
+async fn llm_room(command: LlmRoomCommand, client: &ApiClient) -> anyhow::Result<()> {
+    match command.command {
+        LlmRoomSubcommand::List => print_json(&client.get_json::<Value>("/llm/room").await?)?,
+        LlmRoomSubcommand::Create => print_json(
+            &client
+                .post_json::<_, Value>("/llm/room", &read_json_body_or_default(json!({}))?)
+                .await?,
+        )?,
+        LlmRoomSubcommand::Get(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/room/{}", arg.id))
+                .await?,
+        )?,
+        LlmRoomSubcommand::Update(arg) => print_json(
+            &client
+                .patch_json::<_, Value>(
+                    &format!("/llm/room/{}", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmRoomSubcommand::Message(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/room/{}/messages", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmRoomSubcommand::Wake(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/room/{}/wake", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmRoomSubcommand::Events(args) => {
+            let query = vec![("follow".to_string(), args.follow.to_string())];
+            print_text(
+                &client
+                    .request_text_with_query::<(), _>(
+                        Method::GET,
+                        &format!("/llm/room/{}/events", args.id),
+                        Some(&query),
+                        None,
+                    )
+                    .await?,
+            )?
+        }
+        LlmRoomSubcommand::History(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/room/{}/history", arg.id))
+                .await?,
+        )?,
+        LlmRoomSubcommand::Interrupt(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/room/{}/interrupt", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmRoomSubcommand::Release(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/room/{}/release", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+    }
+    Ok(())
+}
+
+async fn llm_factory(command: LlmFactoryCommand, client: &ApiClient) -> anyhow::Result<()> {
+    match command.command {
+        LlmFactorySubcommand::List => {
+            print_json(&client.get_json::<Value>("/llm/factory/runs").await?)?
+        }
+        LlmFactorySubcommand::Create => print_json(
+            &client
+                .post_json::<_, Value>("/llm/factory/runs", &read_json_body_or_default(json!({}))?)
+                .await?,
+        )?,
+        LlmFactorySubcommand::Get(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/factory/runs/{}", arg.id))
+                .await?,
+        )?,
+        LlmFactorySubcommand::Status(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/factory/runs/{}/status", arg.id))
+                .await?,
+        )?,
+        LlmFactorySubcommand::Checkpoints(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/factory/runs/{}/checkpoints", arg.id))
+                .await?,
+        )?,
+        LlmFactorySubcommand::CreateCheckpoint(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/checkpoints", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::Stages(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/factory/runs/{}/stages", arg.id))
+                .await?,
+        )?,
+        LlmFactorySubcommand::CreateStage(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/stages", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::UpdateStage(arg) => print_json(
+            &client
+                .patch_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/stages/{}", arg.id, arg.stage_id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::Issues(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/factory/runs/{}/issues", arg.id))
+                .await?,
+        )?,
+        LlmFactorySubcommand::CreateIssue(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/issues", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::UpdateIssue(arg) => print_json(
+            &client
+                .patch_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/issues/{}", arg.id, arg.issue_id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::Artifacts(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/factory/runs/{}/artifacts", arg.id))
+                .await?,
+        )?,
+        LlmFactorySubcommand::Advance(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/advance", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::Verify(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/verify", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::GateCheck(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/gate-check", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::Review(arg) => print_json(
+            &client
+                .get_json::<Value>(&format!("/llm/factory/runs/{}/review", arg.id))
                 .await?,
         )?,
     }
@@ -1576,6 +1803,26 @@ fn user_create_body(args: UserCreateCommand) -> anyhow::Result<Value> {
     }
     if let Some(access) = args.access {
         object.insert("access".to_string(), Value::String(access));
+    }
+
+    if object.is_empty() {
+        return read_json_body_or_default(json!({}));
+    }
+
+    Ok(Value::Object(object))
+}
+
+fn user_api_keys_create_body(args: UserApiKeysCreateCommand) -> anyhow::Result<Value> {
+    if let Some(body) = args.body {
+        return Ok(serde_json::from_str(&body)?);
+    }
+
+    let mut object = Map::new();
+    if let Some(name) = args.name {
+        object.insert("name".to_string(), Value::String(name));
+    }
+    if let Some(expires_at) = args.expires_at {
+        object.insert("expires_at".to_string(), Value::String(expires_at));
     }
 
     if object.is_empty() {

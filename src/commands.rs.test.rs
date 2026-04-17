@@ -2,6 +2,7 @@ use clap::Parser;
 
 use crate::cli::{
     AuthSubcommand, AuthTokenSubcommand, Cli, Command, DataSubcommand, KeysSubcommand,
+    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, UserApiKeysSubcommand,
 };
 
 #[test]
@@ -282,6 +283,112 @@ fn parses_keys_commands() {
             other => panic!("expected keys rotate command, got {other:?}"),
         },
         other => panic!("expected keys command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_user_api_keys_commands() {
+    let create = Cli::try_parse_from([
+        "abbot",
+        "user",
+        "api-keys",
+        "create",
+        "--name",
+        "CI runner",
+        "--expires-at",
+        "2026-12-31T23:59:59Z",
+    ])
+    .expect("user api-keys create should parse");
+
+    match create.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::ApiKeys(command) => match command.command {
+                UserApiKeysSubcommand::Create(args) => {
+                    assert_eq!(args.name.as_deref(), Some("CI runner"));
+                    assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
+                }
+                other => panic!("expected user api-keys create command, got {other:?}"),
+            },
+            other => panic!("expected user api-keys command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
+    }
+
+    let revoke_all = Cli::try_parse_from(["abbot", "user", "api-keys", "revoke-all"])
+        .expect("user api-keys revoke-all should parse");
+
+    match revoke_all.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::ApiKeys(command) => match command.command {
+                UserApiKeysSubcommand::RevokeAll => {}
+                other => panic!("expected revoke-all command, got {other:?}"),
+            },
+            other => panic!("expected user api-keys command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_llm_room_commands() {
+    let message = Cli::try_parse_from(["abbot", "llm", "room", "message", "room_123"])
+        .expect("llm room message should parse");
+
+    match message.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Message(arg) => {
+                    assert_eq!(arg.id, "room_123");
+                }
+                other => panic!("expected llm room message command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let events = Cli::try_parse_from(["abbot", "llm", "room", "events", "room_123", "--follow"])
+        .expect("llm room events should parse");
+
+    match events.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Events(args) => {
+                    assert_eq!(args.id, "room_123");
+                    assert!(args.follow);
+                }
+                other => panic!("expected llm room events command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_llm_factory_commands() {
+    let update_stage = Cli::try_parse_from([
+        "abbot",
+        "llm",
+        "factory",
+        "update-stage",
+        "run_123",
+        "stage_456",
+    ])
+    .expect("llm factory update-stage should parse");
+
+    match update_stage.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Factory(factory) => match factory.command {
+                LlmFactorySubcommand::UpdateStage(arg) => {
+                    assert_eq!(arg.id, "run_123");
+                    assert_eq!(arg.stage_id, "stage_456");
+                }
+                other => panic!("expected llm factory update-stage command, got {other:?}"),
+            },
+            other => panic!("expected llm factory command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
     }
 }
 
