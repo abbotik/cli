@@ -124,6 +124,7 @@ jobs:
           trap 'rm -rf "${workdir}"' EXIT
 
           gh repo clone "${tap_repo}" "${workdir}/tap" -- --depth=1
+          git -C "${workdir}/tap" remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${tap_repo}.git"
 
           arm_archive="abbotik-cli-${version}-aarch64-apple-darwin.tar.gz"
           x64_macos_archive="abbotik-cli-${version}-x86_64-apple-darwin.tar.gz"
