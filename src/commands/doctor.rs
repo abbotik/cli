@@ -29,7 +29,7 @@ pub(super) async fn run(
     let next_steps = next_steps_for(config, &introspect, &refresh_probe);
     let ok = matches!(introspect, IntrospectProbe::Ok(_));
 
-    print_json(&json!({
+    let report = json!({
         "ok": ok,
         "profile": selected_profile.unwrap_or("default"),
         "config_path": save_path.map(|path| path.display().to_string()),
@@ -39,7 +39,13 @@ pub(super) async fn run(
         "refresh_probe": refresh_probe.to_json(),
         "diagnosis": diagnosis,
         "next_steps": next_steps,
-    }))?;
+    });
+
+    if stdio::stdout().is_terminal() {
+        print_text(&render_human_report(&report))?;
+    } else {
+        print_json(&report)?;
+    }
 
     Ok(())
 }
@@ -242,6 +248,149 @@ fn next_steps_for(
     }
 }
 
+fn render_human_report(report: &Value) -> String {
+    let ok = report.get("ok").and_then(Value::as_bool).unwrap_or(false);
+    let status = if ok { "OK" } else { "ATTENTION" };
+    let config_path = string_or(report.get("config_path"), "unknown");
+    let base_url = string_or(report.get("base_url"), "unknown");
+    let profile = string_or(report.get("profile"), "default");
+    let token = report.get("token").unwrap_or(&Value::Null);
+    let introspect = report.get("introspect").unwrap_or(&Value::Null);
+    let refresh = report.get("refresh_probe").unwrap_or(&Value::Null);
+    let diagnosis = string_or(report.get("diagnosis"), "No diagnosis available.");
+    let next_steps = string_list(report.get("next_steps"));
+
+    let token_present = token
+        .get("present")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let token_status = if token_present { "saved" } else { "missing" };
+    let auth_type = string_or(token.get("auth_type"), "unknown");
+    let username = string_or(token.get("username"), "-");
+    let tenant = string_or(token.get("tenant"), "-");
+    let access = string_or(token.get("access"), "-");
+    let expires_at = string_or(token.get("expires_at"), "-");
+
+    let introspect_line = match (
+        introspect
+            .get("attempted")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        introspect.get("ok").and_then(Value::as_bool),
+    ) {
+        (false, _) => format!(
+            "not attempted ({})",
+            string_or(introspect.get("reason"), "no reason")
+        ),
+        (true, Some(true)) => {
+            let user = introspect
+                .get("response")
+                .and_then(|value| value.get("data"))
+                .and_then(|value| value.get("user"))
+                .and_then(|value| value.get("username"))
+                .and_then(Value::as_str)
+                .unwrap_or(username.as_str());
+            let tenant_name = introspect
+                .get("response")
+                .and_then(|value| value.get("data"))
+                .and_then(|value| value.get("tenant"))
+                .and_then(|value| value.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or(tenant.as_str());
+            format!("accepted by server as {user}@{tenant_name}")
+        }
+        _ => format!(
+            "failed ({})",
+            string_or(introspect.get("error"), "unknown error")
+        ),
+    };
+
+    let refresh_line = match (
+        refresh
+            .get("attempted")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        refresh.get("available").and_then(Value::as_bool),
+    ) {
+        (false, _) => format!(
+            "not attempted ({})",
+            string_or(refresh.get("reason"), "no reason")
+        ),
+        (true, Some(true)) => "available".to_string(),
+        _ => {
+            let detail = refresh
+                .get("error")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+                .or_else(|| {
+                    refresh
+                        .get("reason")
+                        .and_then(Value::as_str)
+                        .map(ToOwned::to_owned)
+                })
+                .unwrap_or_else(|| "blocked".to_string());
+            format!("blocked ({detail})")
+        }
+    };
+
+    let mut lines = vec![
+        format!("Doctor: {status}"),
+        String::new(),
+        "Config".to_string(),
+        format!("  profile: {profile}"),
+        format!("  path: {config_path}"),
+        format!("  base URL: {base_url}"),
+        String::new(),
+        "Token".to_string(),
+        format!("  state: {token_status}"),
+        format!("  auth type: {auth_type}"),
+        format!("  user: {username}"),
+        format!("  tenant: {tenant}"),
+        format!("  access: {access}"),
+        format!("  expires: {expires_at}"),
+        String::new(),
+        "Checks".to_string(),
+        format!("  introspect: {introspect_line}"),
+        format!("  refresh: {refresh_line}"),
+        String::new(),
+        "Diagnosis".to_string(),
+        format!("  {diagnosis}"),
+    ];
+
+    if !next_steps.is_empty() {
+        lines.push(String::new());
+        lines.push("Next Steps".to_string());
+        lines.extend(
+            next_steps
+                .into_iter()
+                .enumerate()
+                .map(|(index, step)| format!("  {}. {}", index + 1, step)),
+        );
+    }
+
+    lines.join("\n")
+}
+
+fn string_or(value: Option<&Value>, fallback: &str) -> String {
+    value
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn string_list(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,5 +429,50 @@ mod tests {
         assert!(steps
             .iter()
             .any(|step| step.contains("disables local username refresh")));
+    }
+
+    #[test]
+    fn render_human_report_includes_key_sections() {
+        let output = render_human_report(&json!({
+            "ok": true,
+            "profile": "default",
+            "config_path": "/tmp/config.toml",
+            "base_url": "https://integration.abbotik.com/",
+            "token": {
+                "present": true,
+                "auth_type": "username",
+                "username": "ianzepp",
+                "tenant": "ianzepp",
+                "access": "root",
+                "expires_at": "2026-04-25T03:51:51+00:00"
+            },
+            "introspect": {
+                "attempted": true,
+                "ok": true,
+                "response": {
+                    "data": {
+                        "user": { "username": "ianzepp" },
+                        "tenant": { "name": "ianzepp" }
+                    }
+                }
+            },
+            "refresh_probe": {
+                "attempted": true,
+                "available": false,
+                "error": "Local auth is disabled."
+            },
+            "diagnosis": "The saved token currently works.",
+            "next_steps": [
+                "Run `abbot tui`."
+            ]
+        }));
+
+        assert!(output.contains("Doctor: OK"));
+        assert!(output.contains("Config"));
+        assert!(output.contains("Token"));
+        assert!(output.contains("Checks"));
+        assert!(output.contains("Diagnosis"));
+        assert!(output.contains("Next Steps"));
+        assert!(output.contains("accepted by server as ianzepp@ianzepp"));
     }
 }
