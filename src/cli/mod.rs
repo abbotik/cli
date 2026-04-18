@@ -20,6 +20,7 @@ mod public;
 mod stat;
 mod tracked;
 mod trashed;
+mod tui;
 mod user;
 
 pub use acls::*;
@@ -40,6 +41,7 @@ pub use public::*;
 pub use stat::*;
 pub use tracked::*;
 pub use trashed::*;
+pub use tui::*;
 pub use user::*;
 
 const CLI_LONG_ABOUT: &str = include_str!("../../docs/help/cli-long-about.md");
@@ -116,6 +118,7 @@ const LLM_FACTORY_AFTER_HELP: &str = include_str!("../../docs/help/llm-factory-a
 const CRON_AFTER_HELP: &str = include_str!("../../docs/help/cron-after-help.md");
 const FS_AFTER_HELP: &str = include_str!("../../docs/help/fs-after-help.md");
 const APP_AFTER_HELP: &str = include_str!("../../docs/help/app-after-help.md");
+const TUI_AFTER_HELP: &str = include_str!("../../docs/help/tui-after-help.md");
 
 #[derive(Parser, Debug)]
 #[command(
@@ -192,4 +195,6 @@ pub enum Command {
     Fs(FsCommand),
     /// Dynamic app packages
     App(AppCommand),
+    /// Terminal operator console for rooms and factory runs
+    Tui(TuiCommand),
 }

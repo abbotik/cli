@@ -52,6 +52,7 @@ For a new user, the intended first steps are:
 ```bash
 abbot --config staging auth login --tenant acme --username alice --password secret
 abbot --config staging data list rooms
+abbot --config staging tui
 ```
 
 Each named config keeps its own saved token, base URL overrides, output format, and machine-auth metadata.
@@ -80,6 +81,26 @@ Machine clients should use:
 1. `abbot auth machine connect --tenant <tenant> --username <user> --key ~/.config/abbot/abbotik.key`
 2. `abbot auth refresh` when the saved machine token expires; `abbot` auto-detects public-key auth and runs challenge→sign→verify using the saved key path
 3. `abbot user machine-keys list`
+
+## TUI
+
+`abbot tui` opens a terminal operator console over the real Abbotik room and
+factory APIs.
+
+Current v1 behavior:
+
+- reuses the saved CLI base URL and bearer token
+- shows grouped room and factory rails
+- loads room history from `/llm/room/:id/history`
+- sends room turns through `/v1/responses`
+- shows read-only factory overview, stage, issue, checkpoint, artifact, and review views
+
+Typical flow:
+
+```bash
+abbot auth login --tenant acme --username alice --password secret-pass
+abbot tui
+```
 
 Low-level machine-auth commands still exist for manual control:
 

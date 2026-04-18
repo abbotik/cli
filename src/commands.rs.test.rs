@@ -2,7 +2,7 @@ use clap::Parser;
 
 use crate::cli::{
     AuthSubcommand, AuthTokenSubcommand, Cli, Command, DataSubcommand, KeysSubcommand,
-    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, UserMachineKeysSubcommand,
+    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, TuiCommand, UserMachineKeysSubcommand,
 };
 
 #[test]
@@ -278,6 +278,16 @@ fn parses_keys_commands() {
             other => panic!("expected keys revoke-all command, got {other:?}"),
         },
         other => panic!("expected keys command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_top_level_tui_command() {
+    let cli = Cli::try_parse_from(["abbot", "tui"]).expect("tui should parse");
+
+    match cli.command {
+        Command::Tui(TuiCommand {}) => {}
+        other => panic!("expected tui command, got {other:?}"),
     }
 }
 

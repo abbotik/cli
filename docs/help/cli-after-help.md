@@ -7,6 +7,7 @@ Examples:
 ```bash
 abbot public llms
 abbot docs path /docs/auth
+abbot tui
 abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key
 abbot keys create --name ci-runner
 abbot docs path /docs/api/keys
@@ -38,6 +39,7 @@ Useful onboarding sequence for agents and long-running clients:
 abbot public llms
 abbot docs path /docs/auth
 abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key
+abbot tui
 abbot keys create --name ci-runner
 abbot docs path /docs/api/keys
 ```
