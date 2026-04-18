@@ -119,7 +119,9 @@ pub(super) fn resolve_machine_connect_context(
                 .and_then(|machine| machine.tenant.clone())
         })
         .or_else(|| token_claims.tenant.clone())
-        .ok_or_else(|| anyhow::anyhow!("machine connect requires --tenant or a saved machine tenant"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("machine connect requires --tenant or a saved machine tenant")
+        })?;
 
     let machine_auth = config
         .machine_auth
@@ -212,7 +214,8 @@ mod tests {
     use serde_json::json;
 
     fn machine_token(claims: serde_json::Value) -> String {
-        let payload = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claims).expect("claims serialize"));
+        let payload =
+            URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claims).expect("claims serialize"));
         format!("header.{payload}.sig")
     }
 
@@ -301,8 +304,16 @@ mod tests {
         assert_eq!(machine_auth.tenant.as_deref(), Some("acme"));
         assert_eq!(machine_auth.key_id.as_deref(), Some("key-claim"));
         assert_eq!(machine_auth.key_fingerprint.as_deref(), Some("fp-claim"));
-        assert!(machine_auth.public_key_path.as_deref().unwrap().ends_with("/tmp/public.pem"));
-        assert!(machine_auth.private_key_path.as_deref().unwrap().ends_with("/tmp/private.pem"));
+        assert!(machine_auth
+            .public_key_path
+            .as_deref()
+            .unwrap()
+            .ends_with("/tmp/public.pem"));
+        assert!(machine_auth
+            .private_key_path
+            .as_deref()
+            .unwrap()
+            .ends_with("/tmp/private.pem"));
     }
 
     #[test]
@@ -314,8 +325,16 @@ mod tests {
         )
         .expect("paths should resolve");
 
-        assert!(paths.public_key_path.as_deref().unwrap().ends_with("/tmp/override-public.pem"));
-        assert!(paths.private_key_path.as_deref().unwrap().ends_with("/tmp/private.pem"));
+        assert!(paths
+            .public_key_path
+            .as_deref()
+            .unwrap()
+            .ends_with("/tmp/override-public.pem"));
+        assert!(paths
+            .private_key_path
+            .as_deref()
+            .unwrap()
+            .ends_with("/tmp/private.pem"));
     }
 
     #[test]
@@ -353,8 +372,14 @@ mod tests {
         assert_eq!(machine_auth.tenant.as_deref(), Some("acme"));
         assert_eq!(machine_auth.key_id.as_deref(), Some("key_123"));
         assert_eq!(machine_auth.key_fingerprint.as_deref(), Some("fp_123"));
-        assert_eq!(machine_auth.public_key_path.as_deref(), Some("/tmp/public.pem"));
-        assert_eq!(machine_auth.private_key_path.as_deref(), Some("/tmp/private.pem"));
+        assert_eq!(
+            machine_auth.public_key_path.as_deref(),
+            Some("/tmp/public.pem")
+        );
+        assert_eq!(
+            machine_auth.private_key_path.as_deref(),
+            Some("/tmp/private.pem")
+        );
     }
 
     #[test]
@@ -365,6 +390,9 @@ mod tests {
             "tenant": "acme"
         })));
 
-        assert_eq!(current_machine_token_claims(&config), TokenClaims::default());
+        assert_eq!(
+            current_machine_token_claims(&config),
+            TokenClaims::default()
+        );
     }
 }

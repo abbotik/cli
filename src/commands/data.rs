@@ -130,7 +130,10 @@ async fn relationship(
                 crate::cli::RelationshipChildSubcommand::Get => {
                     print_json::<Value>(
                         &client
-                            .get_json_with_query::<_, Value>(&path, &data_helpers::query_pairs(options))
+                            .get_json_with_query::<_, Value>(
+                                &path,
+                                &data_helpers::query_pairs(options),
+                            )
                             .await?,
                     )?;
                 }
@@ -159,7 +162,10 @@ async fn relationship(
                 crate::cli::RelationshipChildSubcommand::Delete => {
                     print_json::<Value>(
                         &client
-                            .delete_json_with_query::<_, Value>(&path, &data_helpers::query_pairs(options))
+                            .delete_json_with_query::<_, Value>(
+                                &path,
+                                &data_helpers::query_pairs(options),
+                            )
                             .await?,
                     )?;
                 }

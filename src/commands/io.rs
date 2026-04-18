@@ -22,7 +22,10 @@ pub(super) fn read_json_body_or_default(default: Value) -> anyhow::Result<Value>
     Ok(serde_json::from_str(&raw)?)
 }
 
-pub(super) fn read_json_source_or_default(source: Option<&str>, default: Value) -> anyhow::Result<Value> {
+pub(super) fn read_json_source_or_default(
+    source: Option<&str>,
+    default: Value,
+) -> anyhow::Result<Value> {
     match source {
         Some(source) if !source.is_empty() => read_json_source(source),
         _ => Ok(default),
@@ -80,7 +83,10 @@ mod tests {
         assert_eq!(trim_one_trailing_newline("token\n".to_string()), "token");
         assert_eq!(trim_one_trailing_newline("token\r\n".to_string()), "token");
         assert_eq!(trim_one_trailing_newline("token".to_string()), "token");
-        assert_eq!(trim_one_trailing_newline("token\n\n".to_string()), "token\n");
+        assert_eq!(
+            trim_one_trailing_newline("token\n\n".to_string()),
+            "token\n"
+        );
     }
 
     #[test]
