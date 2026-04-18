@@ -2,7 +2,7 @@ use super::*;
 
 pub(super) async fn run(command: KeysCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
-        KeysSubcommand::List => print_json(&client.get_json::<Value>("/api/keys").await?)?,
+        KeysSubcommand::List(_) => print_json(&client.get_json::<Value>("/api/keys").await?)?,
         KeysSubcommand::Create(args) => {
             let body = keys_create_body(args)?;
             print_json(&client.post_json::<_, Value>("/api/keys", &body).await?)?;
@@ -12,7 +12,7 @@ pub(super) async fn run(command: KeysCommand, client: &ApiClient) -> anyhow::Res
                 .delete_json::<Value>(&format!("/api/keys/{}", arg.key_id))
                 .await?,
         )?,
-        KeysSubcommand::RevokeAll => print_json(
+        KeysSubcommand::RevokeAll(_) => print_json(
             &client
                 .post_json::<_, Value>("/api/keys/revoke-all", &json!({}))
                 .await?,

@@ -5,6 +5,14 @@ By default, `abbot` talks to the public Abbotik API at `https://api.abbotik.com`
 Examples:
 
 ```bash
+abbot public llms
+abbot docs path /docs/auth
+abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key
+abbot keys create --name ci-runner
+abbot docs path /docs/api/keys
+abbot docs path /docs/api/user/machine-keys
+abbot docs path /docs/llm/room
+abbot docs path /docs/llm/factory
 abbot auth register --tenant acme --username alice --email alice@example.com --password secret-pass
 abbot auth login --tenant acme --username alice --password secret-pass
 abbot user invite --username alice --invite-type human
@@ -24,7 +32,17 @@ abbot bulk export
 abbot fs get /docs/README.md
 ```
 
-Useful onboarding sequence for new users:
+Useful onboarding sequence for agents and long-running clients:
+
+```bash
+abbot public llms
+abbot docs path /docs/auth
+abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key
+abbot keys create --name ci-runner
+abbot docs path /docs/api/keys
+```
+
+Useful onboarding sequence for new human users:
 
 ```bash
 abbot auth register --tenant acme --username alice --email alice@example.com --password secret-pass
@@ -42,6 +60,9 @@ abbot auth register --tenant acme --username alice --invite-code <code> --email 
 abbot auth login --tenant acme --username alice --password secret-pass
 ```
 
+The global `--format` flag accepts `json`, `toon`, or `yaml` and requests that
+representation from API routes that support those response formats.
+
 Machine-readable output is available with `--format json`:
 
 ```bash
@@ -49,5 +70,5 @@ abbot --format json auth login --tenant acme --username alice --password secret-
 abbot --format json describe list
 ```
 
-If you are automating against Abbotik, start from the root command tree and then
-move down into the resource branch you need.
+If you are automating against Abbotik, start from `public llms` and the `docs`
+branch, then move down into the resource branch you need.

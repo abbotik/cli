@@ -44,6 +44,8 @@ const CLI_LONG_ABOUT: &str = include_str!("../../docs/help/cli-long-about.md");
 const CLI_AFTER_HELP: &str = include_str!("../../docs/help/cli-after-help.md");
 const COMMAND_AFTER_HELP: &str = include_str!("../../docs/help/command-after-help.md");
 const PUBLIC_AFTER_HELP: &str = include_str!("../../docs/help/public-after-help.md");
+const PUBLIC_ROOT_AFTER_HELP: &str = include_str!("../../docs/help/public-root-after-help.md");
+const PUBLIC_LLMS_AFTER_HELP: &str = include_str!("../../docs/help/public-llms-after-help.md");
 const AUTH_AFTER_HELP: &str = include_str!("../../docs/help/auth-after-help.md");
 const AUTH_LOGIN_AFTER_HELP: &str = include_str!("../../docs/help/auth-login-after-help.md");
 const AUTH_REGISTER_AFTER_HELP: &str = include_str!("../../docs/help/auth-register-after-help.md");
@@ -60,7 +62,10 @@ const AUTH_DISSOLVE_AFTER_HELP: &str = include_str!("../../docs/help/auth-dissol
 const AUTH_DISSOLVE_CONFIRM_AFTER_HELP: &str =
     include_str!("../../docs/help/auth-dissolve-confirm-after-help.md");
 const AUTH_TOKEN_AFTER_HELP: &str = include_str!("../../docs/help/auth-token-after-help.md");
+const AUTH_TENANTS_AFTER_HELP: &str = include_str!("../../docs/help/auth-tenants-after-help.md");
 const DOCS_AFTER_HELP: &str = include_str!("../../docs/help/docs-after-help.md");
+const DOCS_ROOT_AFTER_HELP: &str = include_str!("../../docs/help/docs-root-after-help.md");
+const DOCS_PATH_AFTER_HELP: &str = include_str!("../../docs/help/docs-path-after-help.md");
 const DESCRIBE_AFTER_HELP: &str = include_str!("../../docs/help/describe-after-help.md");
 const DESCRIBE_FIELDS_AFTER_HELP: &str =
     include_str!("../../docs/help/describe-fields-after-help.md");
@@ -77,6 +82,9 @@ const STAT_AFTER_HELP: &str = include_str!("../../docs/help/stat-after-help.md")
 const TRACKED_AFTER_HELP: &str = include_str!("../../docs/help/tracked-after-help.md");
 const TRASHED_AFTER_HELP: &str = include_str!("../../docs/help/trashed-after-help.md");
 const USER_AFTER_HELP: &str = include_str!("../../docs/help/user-after-help.md");
+const USER_ME_AFTER_HELP: &str = include_str!("../../docs/help/user-me-after-help.md");
+const USER_INTROSPECT_AFTER_HELP: &str =
+    include_str!("../../docs/help/user-introspect-after-help.md");
 const USER_LIST_AFTER_HELP: &str = include_str!("../../docs/help/user-list-after-help.md");
 const USER_CREATE_AFTER_HELP: &str = include_str!("../../docs/help/user-create-after-help.md");
 const USER_DELETE_AFTER_HELP: &str = include_str!("../../docs/help/user-delete-after-help.md");
@@ -92,9 +100,15 @@ const USER_KEYS_ROTATE_AFTER_HELP: &str =
 const USER_KEYS_DELETE_AFTER_HELP: &str =
     include_str!("../../docs/help/user-keys-delete-after-help.md");
 const KEYS_AFTER_HELP: &str = include_str!("../../docs/help/keys-after-help.md");
+const KEYS_LIST_AFTER_HELP: &str = include_str!("../../docs/help/keys-list-after-help.md");
 const KEYS_CREATE_AFTER_HELP: &str = include_str!("../../docs/help/keys-create-after-help.md");
 const KEYS_DELETE_AFTER_HELP: &str = include_str!("../../docs/help/keys-delete-after-help.md");
+const KEYS_REVOKE_ALL_AFTER_HELP: &str =
+    include_str!("../../docs/help/keys-revoke-all-after-help.md");
 const LLM_AFTER_HELP: &str = include_str!("../../docs/help/llm-after-help.md");
+const LLM_PROVIDERS_AFTER_HELP: &str = include_str!("../../docs/help/llm-providers-after-help.md");
+const LLM_MODELS_AFTER_HELP: &str = include_str!("../../docs/help/llm-models-after-help.md");
+const LLM_SKILLS_AFTER_HELP: &str = include_str!("../../docs/help/llm-skills-after-help.md");
 const LLM_ROOM_AFTER_HELP: &str = include_str!("../../docs/help/llm-room-after-help.md");
 const LLM_FACTORY_AFTER_HELP: &str = include_str!("../../docs/help/llm-factory-after-help.md");
 const CRON_AFTER_HELP: &str = include_str!("../../docs/help/cron-after-help.md");
@@ -130,7 +144,7 @@ pub struct GlobalOptions {
     #[arg(long)]
     pub token: Option<String>,
 
-    /// Override the preferred response format
+    /// Override the preferred response format (json, toon, yaml)
     #[arg(long)]
     pub format: Option<String>,
 }

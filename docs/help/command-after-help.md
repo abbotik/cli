@@ -3,8 +3,12 @@
 The root command splits into focused branches instead of flattening everything
 into one long list.
 
-If you are new to Abbotik, start with `abbot auth register` to create a tenant and
-local session. The CLI now follows registration with login because the server no
+If you are an agent or long-running client, start with `abbot public llms` and
+`abbot docs path /docs/auth`, then prefer `abbot auth machine connect` and
+`abbot keys create` before exploring protected routes.
+
+If you are doing human bootstrap, `abbot auth register` still creates a tenant
+and local session. The CLI follows registration with login because the server no
 longer mints a JWT directly from `/auth/register`.
 
 If you are joining an existing tenant, have a root or full user mint a one-time
@@ -14,14 +18,15 @@ invite with `abbot user invite`, then redeem it with `abbot auth register` or
 Use this rough map when navigating the CLI:
 
 - `public` for root documents and agent-facing discovery
-- `auth` for human login, machine bootstrap, refresh, and tenant state
-- `docs` for API docs lookups
+- `auth` for machine-first bootstrap, human login, refresh, and tenant state
+- `docs` for exact router-shaped API docs lookups
 - `describe` for schema and field metadata
 - `data` for CRUD and relationship traversal
 - `find`, `aggregate`, and `bulk` for queries and batch work
-- `acls`, `stat`, `tracked`, and `trashed` for record state and audit-like views
-- `user` for account operations, machine-key management, and elevated actions
-- `keys` for self-service bearer API keys
+- `acls`, `stat`, `tracked`, and `trashed` for record state and lifecycle views
+- `user` for account operations, machine-key management, introspection, and elevated actions
+- `keys` for durable self-service bearer API keys
+- `llm` for rooms, factories, providers, and skills
 - `cron` for scheduled workflows
 - `fs` for file content and metadata
 - `app` for app-specific path forwarding

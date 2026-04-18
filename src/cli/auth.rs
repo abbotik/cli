@@ -29,8 +29,12 @@ pub enum AuthSubcommand {
     /// Show, set, or clear the saved JWT
     Token(AuthTokenCommand),
     /// List tenants available for login
-    Tenants,
+    Tenants(AuthTenantsCommand),
 }
+
+#[derive(Args, Debug, Default)]
+#[command(after_long_help = AUTH_TENANTS_AFTER_HELP)]
+pub struct AuthTenantsCommand {}
 
 #[derive(Args, Debug)]
 #[command(after_long_help = AUTH_LOGIN_AFTER_HELP)]

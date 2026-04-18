@@ -1,10 +1,9 @@
-use super::*;
 use super::auth_support::{
     current_machine_token_claims, decode_token_claims, machine_key_paths,
-    resolve_machine_connect_context, resolve_machine_refresh_context,
-    resolve_saved_machine_paths, update_machine_auth_from_provision,
-    update_machine_auth_from_verify_response, TokenClaims,
+    resolve_machine_connect_context, resolve_machine_refresh_context, resolve_saved_machine_paths,
+    update_machine_auth_from_provision, update_machine_auth_from_verify_response, TokenClaims,
 };
+use super::*;
 
 fn sign_machine_nonce(private_key_path: &str, nonce: &str) -> anyhow::Result<String> {
     let pem = stdfs::read_to_string(private_key_path)?;
@@ -384,7 +383,7 @@ pub(super) async fn run(
         crate::cli::AuthSubcommand::Token(command) => {
             auth_token(command, config, save_path).await?
         }
-        crate::cli::AuthSubcommand::Tenants => {
+        crate::cli::AuthSubcommand::Tenants(_) => {
             print_json(&client.auth_tenants().await?)?;
         }
     }

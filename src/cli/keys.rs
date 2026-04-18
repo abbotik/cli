@@ -10,11 +10,19 @@ pub struct KeysCommand {
 #[derive(Subcommand, Debug)]
 #[command(after_long_help = KEYS_AFTER_HELP)]
 pub enum KeysSubcommand {
-    List,
+    /// List the current user's global bearer API keys
+    List(KeysListCommand),
+    /// Mint a new global bearer API key for the current user
     Create(KeysCreateCommand),
+    /// Revoke one global bearer API key by key ID
     Delete(KeysDeleteCommand),
-    RevokeAll,
+    /// Revoke every global bearer API key owned by the current user
+    RevokeAll(KeysRevokeAllCommand),
 }
+
+#[derive(Args, Debug, Default)]
+#[command(after_long_help = KEYS_LIST_AFTER_HELP)]
+pub struct KeysListCommand {}
 
 #[derive(Args, Debug)]
 #[command(after_long_help = KEYS_CREATE_AFTER_HELP)]
@@ -37,3 +45,7 @@ pub struct KeysCreateCommand {
 pub struct KeysDeleteCommand {
     pub key_id: String,
 }
+
+#[derive(Args, Debug, Default)]
+#[command(after_long_help = KEYS_REVOKE_ALL_AFTER_HELP)]
+pub struct KeysRevokeAllCommand {}

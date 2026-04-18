@@ -2,11 +2,13 @@ use super::*;
 
 pub(super) async fn run(command: LlmCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
-        LlmSubcommand::Providers => print_json(&client.get_json::<Value>("/llm/providers").await?)?,
-        LlmSubcommand::Models => {
+        LlmSubcommand::Providers(_) => {
+            print_json(&client.get_json::<Value>("/llm/providers").await?)?
+        }
+        LlmSubcommand::Models(_) => {
             print_json(&client.get_json::<Value>("/llm/providers/models").await?)?
         }
-        LlmSubcommand::Skills => print_json(&client.get_json::<Value>("/llm/skills").await?)?,
+        LlmSubcommand::Skills(_) => print_json(&client.get_json::<Value>("/llm/skills").await?)?,
         LlmSubcommand::Room(command) => llm_room(command, client).await?,
         LlmSubcommand::Factory(command) => llm_factory(command, client).await?,
     }

@@ -274,10 +274,24 @@ fn parses_keys_commands() {
 
     match revoke_all.command {
         Command::Keys(keys) => match keys.command {
-            KeysSubcommand::RevokeAll => {}
+            KeysSubcommand::RevokeAll(_) => {}
             other => panic!("expected keys revoke-all command, got {other:?}"),
         },
         other => panic!("expected keys command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_user_introspect_command() {
+    let cli =
+        Cli::try_parse_from(["abbot", "user", "introspect"]).expect("introspect should parse");
+
+    match cli.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::Introspect(_) => {}
+            other => panic!("expected user introspect command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
     }
 }
 

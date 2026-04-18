@@ -2,7 +2,10 @@ use super::*;
 
 pub(super) async fn run(command: UserCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
-        UserSubcommand::Me => print_json(&client.get_json::<Value>("/api/user/me").await?)?,
+        UserSubcommand::Me(_) => print_json(&client.get_json::<Value>("/api/user/me").await?)?,
+        UserSubcommand::Introspect(_) => {
+            print_json(&client.get_json::<Value>("/api/user/introspect").await?)?
+        }
         UserSubcommand::List(args) => {
             let query = user_list_query(&args);
             print_json(

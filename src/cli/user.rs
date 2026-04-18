@@ -10,18 +10,39 @@ pub struct UserCommand {
 #[derive(Subcommand, Debug)]
 #[command(after_long_help = USER_AFTER_HELP)]
 pub enum UserSubcommand {
-    Me,
+    /// Show the current authenticated user profile
+    Me(UserMeCommand),
+    /// Return the trusted execution context for the current bearer token
+    Introspect(UserIntrospectCommand),
+    /// List users in the current tenant
     List(UserListCommand),
+    /// Create a user in the current tenant
     Create(UserCreateCommand),
+    /// Create a one-time invite for a future tenant user
     Invite(UserInviteCommand),
+    /// Manage tenant-bound machine public keys
     MachineKeys(UserMachineKeysCommand),
+    /// Fetch one user by ID or `me`
     Get(UserIdArg),
+    /// Update one user by ID or `me`
     Update(UserIdArg),
+    /// Delete one user by ID or `me`
     Delete(UserDeleteCommand),
+    /// Change a user's password
     Password(UserPasswordCommand),
+    /// Mint a short-lived sudo token
     Sudo(UserSudoCommand),
+    /// Mint a short-lived impersonation token
     Fake(UserFakeCommand),
 }
+
+#[derive(Args, Debug, Default)]
+#[command(after_long_help = USER_ME_AFTER_HELP)]
+pub struct UserMeCommand {}
+
+#[derive(Args, Debug, Default)]
+#[command(after_long_help = USER_INTROSPECT_AFTER_HELP)]
+pub struct UserIntrospectCommand {}
 
 #[derive(Args, Debug, Default)]
 #[command(after_long_help = USER_LIST_AFTER_HELP)]
@@ -97,9 +118,13 @@ pub struct UserMachineKeysCommand {
 #[derive(Subcommand, Debug)]
 #[command(after_long_help = USER_KEYS_AFTER_HELP)]
 pub enum UserMachineKeysSubcommand {
+    /// List tenant machine keys with fingerprint-first metadata
     List,
+    /// Add a public key bound to a tenant-local user
     Create(UserMachineKeysCreateCommand),
+    /// Rotate a machine key with an overlap window
     Rotate(UserMachineKeysRotateCommand),
+    /// Revoke one tenant machine key by key ID
     Delete(UserMachineKeyIdArg),
 }
 
