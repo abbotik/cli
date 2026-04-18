@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/abbotik/cli/main/scripts/install.sh
 To pin a version:
 
 ```bash
-ABBOTIK_CLI_VERSION=v1.6.0 \
+ABBOTIK_CLI_VERSION=v1.7.0 \
   curl -fsSL https://raw.githubusercontent.com/abbotik/cli/main/scripts/install.sh | bash
 ```
 
