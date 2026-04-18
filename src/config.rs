@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AbbotikError;
@@ -39,7 +40,7 @@ pub struct AbbotikConfig {
     pub machine_auth: Option<MachineAuthConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum OutputFormat {
     #[default]

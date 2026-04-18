@@ -1,5 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 
+use crate::config::OutputFormat;
+
 mod acls;
 mod aggregate;
 mod app;
@@ -145,8 +147,8 @@ pub struct GlobalOptions {
     pub token: Option<String>,
 
     /// Override the preferred response format (json only)
-    #[arg(long)]
-    pub format: Option<String>,
+    #[arg(long, value_enum)]
+    pub format: Option<OutputFormat>,
 }
 
 #[derive(Subcommand, Debug)]

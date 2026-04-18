@@ -63,7 +63,7 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         config.token = Some(token.clone());
     }
     if let Some(format) = cli.globals.format.as_ref() {
-        config.output_format = format.parse()?;
+        config.output_format = format.clone();
     }
 
     let client = ApiClient::new(config.clone())?;
