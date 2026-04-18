@@ -144,7 +144,7 @@ pub struct GlobalOptions {
     #[arg(long)]
     pub token: Option<String>,
 
-    /// Override the preferred response format (json, toon, yaml)
+    /// Override the preferred response format (json only)
     #[arg(long)]
     pub format: Option<String>,
 }

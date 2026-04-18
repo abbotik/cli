@@ -46,8 +46,8 @@ mod trashed;
 mod user;
 
 use self::io::{
-    read_json_body_or_default, read_json_source, read_json_source_or_default,
-    read_secret_source, read_secret_source_option, read_stdin_or_empty,
+    read_json_body_or_default, read_json_source, read_json_source_or_default, read_secret_source,
+    read_secret_source_option, read_stdin_or_empty,
 };
 use self::shared::vec_or_none;
 
@@ -63,14 +63,16 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         config.token = Some(token.clone());
     }
     if let Some(format) = cli.globals.format.as_ref() {
-        config.output_format = format.parse().unwrap_or_default();
+        config.output_format = format.parse()?;
     }
 
     let client = ApiClient::new(config.clone())?;
 
     match cli.command {
         Command::Public(command) => public::run(command, &client).await?,
-        Command::Auth(command) => auth::run(command, &mut config, &client, save_path.as_deref()).await?,
+        Command::Auth(command) => {
+            auth::run(command, &mut config, &client, save_path.as_deref()).await?
+        }
         Command::Health => print_json(&client.health().await?)?,
         Command::Docs(command) => docs::run(command, &client).await?,
         Command::Describe(command) => describe::run(command, &client).await?,

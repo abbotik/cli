@@ -11,7 +11,7 @@ pub enum OutputMode {
 impl OutputMode {
     pub fn from_format(format: OutputFormat) -> Self {
         match format {
-            OutputFormat::Json | OutputFormat::Toon | OutputFormat::Yaml => OutputMode::Json,
+            OutputFormat::Json => OutputMode::Json,
         }
     }
 }

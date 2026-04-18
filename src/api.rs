@@ -703,8 +703,6 @@ impl ApiClient {
     fn accept_header_value(&self) -> &'static str {
         match self.output_format {
             OutputFormat::Json => "application/json",
-            OutputFormat::Toon => "application/toon",
-            OutputFormat::Yaml => "application/yaml",
         }
     }
 

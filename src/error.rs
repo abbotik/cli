@@ -9,6 +9,9 @@ pub enum AbbotikError {
     #[error("invalid api base url: {0}")]
     InvalidBaseUrl(String),
 
+    #[error("unsupported output format `{0}`; only `json` is supported")]
+    UnsupportedOutputFormat(String),
+
     #[error("configuration path is unavailable on this platform")]
     ConfigPathUnavailable,
 

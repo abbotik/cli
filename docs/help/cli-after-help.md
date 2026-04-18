@@ -60,8 +60,7 @@ abbot auth register --tenant acme --username alice --invite-code <code> --email 
 abbot auth login --tenant acme --username alice --password secret-pass
 ```
 
-The global `--format` flag accepts `json`, `toon`, or `yaml` and requests that
-representation from API routes that support those response formats.
+The global `--format` flag currently accepts `json` only.
 
 Machine-readable output is available with `--format json`:
 

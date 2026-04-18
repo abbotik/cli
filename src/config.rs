@@ -44,8 +44,6 @@ pub struct AbbotikConfig {
 pub enum OutputFormat {
     #[default]
     Json,
-    Toon,
-    Yaml,
 }
 
 impl AbbotikConfig {
@@ -58,19 +56,19 @@ impl AbbotikConfig {
         }
     }
 
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Result<Self, AbbotikError> {
         let mut config = Self::default();
-        config.apply_env_overrides();
-        config
+        config.apply_env_overrides()?;
+        Ok(config)
     }
 
     pub fn load_effective(profile: Option<&str>) -> Result<Self, AbbotikError> {
         let mut config = Self::load(profile)?;
-        config.apply_env_overrides();
+        config.apply_env_overrides()?;
         Ok(config)
     }
 
-    pub fn apply_env_overrides(&mut self) {
+    pub fn apply_env_overrides(&mut self) -> Result<(), AbbotikError> {
         if let Ok(base_url) = env::var("ABBOTIK_API_BASE_URL") {
             self.base_url = base_url;
         }
@@ -80,8 +78,10 @@ impl AbbotikConfig {
         }
 
         if let Ok(format) = env::var("ABBOTIK_API_FORMAT") {
-            self.output_format = format.parse().unwrap_or_default();
+            self.output_format = format.parse()?;
         }
+
+        Ok(())
     }
 
     pub fn config_path(profile: Option<&str>) -> Result<PathBuf, AbbotikError> {
@@ -281,7 +281,7 @@ mod tests {
         let config = AbbotikConfig {
             base_url: "https://example.com".to_string(),
             token: Some("jwt-one".to_string()),
-            output_format: OutputFormat::Yaml,
+            output_format: OutputFormat::Json,
             machine_auth: Some(MachineAuthConfig {
                 tenant: Some("acme".to_string()),
                 key_id: Some("key-1".to_string()),
@@ -296,7 +296,7 @@ mod tests {
 
         assert_eq!(loaded.base_url, "https://example.com");
         assert_eq!(loaded.token.as_deref(), Some("jwt-one"));
-        assert_eq!(loaded.output_format, OutputFormat::Yaml);
+        assert_eq!(loaded.output_format, OutputFormat::Json);
         assert_eq!(
             loaded
                 .machine_auth
@@ -361,27 +361,32 @@ mod tests {
             Err(super::AbbotikError::ConfigRead { .. })
         ));
     }
+
+    #[test]
+    fn unsupported_output_format_is_rejected() {
+        let parsed = "yaml".parse::<OutputFormat>();
+        assert!(matches!(
+            parsed,
+            Err(super::AbbotikError::UnsupportedOutputFormat(value)) if value == "yaml"
+        ));
+    }
 }
 
 impl OutputFormat {
     pub fn as_str(&self) -> &'static str {
         match self {
             OutputFormat::Json => "json",
-            OutputFormat::Toon => "toon",
-            OutputFormat::Yaml => "yaml",
         }
     }
 }
 
 impl std::str::FromStr for OutputFormat {
-    type Err = ();
+    type Err = AbbotikError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_ascii_lowercase().as_str() {
             "json" => Ok(OutputFormat::Json),
-            "toon" => Ok(OutputFormat::Toon),
-            "yaml" => Ok(OutputFormat::Yaml),
-            _ => Err(()),
+            _ => Err(AbbotikError::UnsupportedOutputFormat(value.to_string())),
         }
     }
 }
