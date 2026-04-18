@@ -6,6 +6,8 @@ Examples:
 
 ```bash
 abbot public llms
+abbot config
+abbot doctor
 abbot docs path /docs/auth
 abbot tui
 abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key

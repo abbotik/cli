@@ -5,6 +5,11 @@ By default it talks to the public API at `https://api.abbotik.com`.
 
 The CLI stores its default config at `~/.config/abbot/cli/config.toml`. Pass `--config <name>` to use an isolated profile at `~/.config/abbot/cli/configs/<name>.toml` instead.
 
+Two human-first inspection commands now exist:
+
+- `abbot config` to show the active config file, host, and saved auth summary
+- `abbot doctor` to explain whether the saved auth actually works and what to run next
+
 ## Release and install
 
 The release process is tag-based and publishes GitHub Release assets for:

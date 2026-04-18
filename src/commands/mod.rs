@@ -29,10 +29,12 @@ mod app;
 mod auth;
 mod auth_support;
 mod bulk;
+mod config_cmd;
 mod cron;
 mod data;
 mod describe;
 mod docs;
+mod doctor;
 mod find;
 mod fs;
 mod io;
@@ -75,6 +77,22 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             auth::run(command, &mut config, &client, save_path.as_deref()).await?
         }
         Command::Health => print_json(&client.health().await?)?,
+        Command::Config(command) => config_cmd::run(
+            command,
+            &config,
+            selected_profile.as_deref(),
+            save_path.as_deref(),
+        )?,
+        Command::Doctor(command) => {
+            doctor::run(
+                command,
+                &client,
+                &config,
+                selected_profile.as_deref(),
+                save_path.as_deref(),
+            )
+            .await?
+        }
         Command::Docs(command) => docs::run(command, &client).await?,
         Command::Describe(command) => describe::run(command, &client).await?,
         Command::Data(command) => data::run(command, &client).await?,

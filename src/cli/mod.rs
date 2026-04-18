@@ -8,10 +8,12 @@ mod app;
 mod args;
 mod auth;
 mod bulk;
+mod config_cmd;
 mod cron;
 mod data;
 mod describe;
 mod docs;
+mod doctor;
 mod find;
 mod fs;
 mod keys;
@@ -29,10 +31,12 @@ pub use app::*;
 pub use args::*;
 pub use auth::*;
 pub use bulk::*;
+pub use config_cmd::*;
 pub use cron::*;
 pub use data::*;
 pub use describe::*;
 pub use docs::*;
+pub use doctor::*;
 pub use find::*;
 pub use fs::*;
 pub use keys::*;
@@ -116,6 +120,8 @@ const LLM_SKILLS_AFTER_HELP: &str = include_str!("../../docs/help/llm-skills-aft
 const LLM_ROOM_AFTER_HELP: &str = include_str!("../../docs/help/llm-room-after-help.md");
 const LLM_FACTORY_AFTER_HELP: &str = include_str!("../../docs/help/llm-factory-after-help.md");
 const CRON_AFTER_HELP: &str = include_str!("../../docs/help/cron-after-help.md");
+const CONFIG_AFTER_HELP: &str = include_str!("../../docs/help/config-after-help.md");
+const DOCTOR_AFTER_HELP: &str = include_str!("../../docs/help/doctor-after-help.md");
 const FS_AFTER_HELP: &str = include_str!("../../docs/help/fs-after-help.md");
 const APP_AFTER_HELP: &str = include_str!("../../docs/help/app-after-help.md");
 const TUI_AFTER_HELP: &str = include_str!("../../docs/help/tui-after-help.md");
@@ -163,6 +169,10 @@ pub enum Command {
     Auth(AuthCommand),
     /// Health checks
     Health,
+    /// Show the active CLI config summary
+    Config(ConfigCommand),
+    /// Explain auth and config state for the active profile
+    Doctor(DoctorCommand),
     /// API documentation helpers
     Docs(DocsCommand),
     /// Model metadata and schema management

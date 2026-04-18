@@ -1,8 +1,9 @@
 use clap::Parser;
 
 use crate::cli::{
-    AuthSubcommand, AuthTokenSubcommand, Cli, Command, DataSubcommand, KeysSubcommand,
-    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, TuiCommand, UserMachineKeysSubcommand,
+    AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, DataSubcommand,
+    DoctorCommand, KeysSubcommand, LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand,
+    TuiCommand, UserMachineKeysSubcommand,
 };
 
 #[test]
@@ -288,6 +289,21 @@ fn parses_top_level_tui_command() {
     match cli.command {
         Command::Tui(TuiCommand {}) => {}
         other => panic!("expected tui command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_top_level_config_and_doctor_commands() {
+    let config = Cli::try_parse_from(["abbot", "config"]).expect("config should parse");
+    match config.command {
+        Command::Config(ConfigCommand {}) => {}
+        other => panic!("expected config command, got {other:?}"),
+    }
+
+    let doctor = Cli::try_parse_from(["abbot", "doctor"]).expect("doctor should parse");
+    match doctor.command {
+        Command::Doctor(DoctorCommand {}) => {}
+        other => panic!("expected doctor command, got {other:?}"),
     }
 }
 
