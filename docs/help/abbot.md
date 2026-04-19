@@ -3,21 +3,36 @@
 `abbot` is the command-line client for the Abbotik API.
 By default it talks to the public API at `https://api.abbotik.com`.
 
-It is organized as a command tree with a small set of root surfaces and a
-larger set of resource-specific branches:
+It is organized as a command tree with a small core set of root surfaces and a
+larger set of secondary branches.
 
-- `public` for unauthenticated discovery documents
+Core surfaces:
+
 - `auth` for machine-first bootstrap, human login, token refresh, and tenant selection
-- `health` for a quick service check
-- `command` for embedded markdown docs about a command path
-- `docs` for direct router-shaped API documentation access
-- `describe`, `data`, `find`, `aggregate`, and `bulk` for model and record work
-- `acls`, `stat`, `tracked`, and `trashed` for record metadata and lifecycle
-- `user` for account, machine-key, introspection, and sudo workflows
-- `keys` for durable self-service bearer API keys
-- `cron` for scheduled process management
-- `fs` for tenant filesystem access
+- `config` for local profile management and switching
+- `data` for model record operations
+- `describe` for model metadata and schema management
+
+Other root branches:
+
+- `acls` for record ACL management
+- `aggregate` for aggregate operations
 - `app` for dynamic application paths
+- `bulk` for multi-operation transactions
+- `command` for embedded markdown docs about a command path
+- `cron` for scheduled process management
+- `docs` for direct router-shaped API documentation access
+- `doctor` for active-profile diagnostics and connection checks
+- `find` for advanced query operations
+- `fs` for tenant filesystem access
+- `health` for a quick service check
+- `keys` for durable self-service bearer API keys
+- `llm` for rooms, factory runs, and provider discovery
+- `public` for unauthenticated discovery documents
+- `stat`, `tracked`, and `trashed` for record metadata and lifecycle
+- `tui` for the terminal operator console
+- `update` for CLI self-update flows
+- `user` for account, machine-key, introspection, and sudo workflows
 
 If you are an agent or long-running client, the shortest reliable path is:
 

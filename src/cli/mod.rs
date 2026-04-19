@@ -86,52 +86,52 @@ pub struct GlobalOptions {
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
-    /// Public surfaces and discovery
-    Public(PublicCommand),
     /// Authentication and tenant bootstrap
     Auth(AuthCommand),
-    /// Health checks
-    Health,
-    /// Read embedded markdown docs for a command path
-    Command(CommandDocsCommand),
     /// Show the active CLI config summary
     Config(ConfigCommand),
-    /// Explain auth and config state for the active profile
-    Doctor(DoctorCommand),
-    /// API documentation helpers
-    Docs(DocsCommand),
-    /// Model metadata and schema management
-    Describe(DescribeCommand),
     /// Model data operations
     Data(DataCommand),
-    /// Advanced query operations
-    Find(FindCommand),
-    /// Aggregate operations
-    Aggregate(AggregateCommand),
-    /// Multi-operation transactions
-    Bulk(BulkCommand),
+    /// Model metadata and schema management
+    Describe(DescribeCommand),
     /// Record ACL management
     Acls(AclsCommand),
+    /// Aggregate operations
+    Aggregate(AggregateCommand),
+    /// Dynamic app packages
+    App(AppCommand),
+    /// Multi-operation transactions
+    Bulk(BulkCommand),
+    /// Read embedded markdown docs for a command path
+    Command(CommandDocsCommand),
+    /// Scheduled process workflows
+    Cron(CronCommand),
+    /// API documentation helpers
+    Docs(DocsCommand),
+    /// Explain auth and config state for the active profile
+    Doctor(DoctorCommand),
+    /// Advanced query operations
+    Find(FindCommand),
+    /// Tenant filesystem workflows
+    Fs(FsCommand),
+    /// Health checks
+    Health,
+    /// Self-service bearer API key management
+    Keys(KeysCommand),
+    /// LLM rooms, factory runs, and provider discovery
+    Llm(LlmCommand),
+    /// Public surfaces and discovery
+    Public(PublicCommand),
     /// Record metadata
     Stat(StatCommand),
     /// Change tracking
     Tracked(TrackedCommand),
     /// Soft-delete and restore workflows
     Trashed(TrashedCommand),
-    /// User, machine-key, and sudo workflows
-    User(UserCommand),
-    /// Self-service bearer API key management
-    Keys(KeysCommand),
-    /// LLM rooms, factory runs, and provider discovery
-    Llm(LlmCommand),
-    /// Scheduled process workflows
-    Cron(CronCommand),
-    /// Tenant filesystem workflows
-    Fs(FsCommand),
-    /// Dynamic app packages
-    App(AppCommand),
     /// Terminal operator console for rooms and factory runs
     Tui(TuiCommand),
     /// Update this CLI to the latest release
     Update(UpdateCommand),
+    /// User, machine-key, and sudo workflows
+    User(UserCommand),
 }
