@@ -46,6 +46,7 @@ mod stat;
 mod tracked;
 mod trashed;
 mod tui;
+mod update;
 mod user;
 
 use self::io::{
@@ -110,6 +111,7 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Fs(command) => fs::run(command, &client).await?,
         Command::App(command) => app::run(command, &client).await?,
         Command::Tui(command) => tui::run(command, &client).await?,
+        Command::Update(command) => update::run(command).await?,
     }
 
     Ok(())

@@ -9,6 +9,7 @@ Two human-first inspection commands now exist:
 
 - `abbot config` to show the active config file, host, and saved auth summary
 - `abbot doctor` to explain whether the saved auth actually works and what to run next
+- `abbot update` to refresh the current CLI binary using the install method it detects
 
 ## Release and install
 
@@ -48,6 +49,19 @@ Optional install directory:
 ABBOTIK_CLI_INSTALL_DIR="$HOME/bin" \
   curl -fsSL https://raw.githubusercontent.com/abbotik/cli/main/scripts/install.sh | bash
 ```
+
+Once installed, `abbot update` distinguishes the current binary's install path:
+
+- Homebrew installs run `brew upgrade abbotik/tap/abbot`
+- curl installs pull the latest GitHub release asset and replace the current binary in place
+
+Extra update modes:
+
+- `abbot update --version-list` shows published release versions without installing
+- `abbot update --version v1.7.0` installs that exact published release for curl-installed binaries
+
+Exact version installs are not supported for Homebrew-managed binaries because the
+tap formula tracks the current release.
 
 ## Current state
 

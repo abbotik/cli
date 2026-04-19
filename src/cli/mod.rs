@@ -23,6 +23,7 @@ mod stat;
 mod tracked;
 mod trashed;
 mod tui;
+mod update;
 mod user;
 
 pub use acls::*;
@@ -46,6 +47,7 @@ pub use stat::*;
 pub use tracked::*;
 pub use trashed::*;
 pub use tui::*;
+pub use update::*;
 pub use user::*;
 
 const CLI_LONG_ABOUT: &str = include_str!("../../docs/help/cli-long-about.md");
@@ -125,6 +127,7 @@ const DOCTOR_AFTER_HELP: &str = include_str!("../../docs/help/doctor-after-help.
 const FS_AFTER_HELP: &str = include_str!("../../docs/help/fs-after-help.md");
 const APP_AFTER_HELP: &str = include_str!("../../docs/help/app-after-help.md");
 const TUI_AFTER_HELP: &str = include_str!("../../docs/help/tui-after-help.md");
+const UPDATE_AFTER_HELP: &str = include_str!("../../docs/help/update-after-help.md");
 
 #[derive(Parser, Debug)]
 #[command(
@@ -207,4 +210,6 @@ pub enum Command {
     App(AppCommand),
     /// Terminal operator console for rooms and factory runs
     Tui(TuiCommand),
+    /// Update this CLI to the latest release
+    Update(UpdateCommand),
 }

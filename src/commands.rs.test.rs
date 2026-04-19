@@ -3,7 +3,7 @@ use clap::Parser;
 use crate::cli::{
     AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, DataSubcommand,
     DoctorCommand, KeysSubcommand, LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand,
-    TuiCommand, UserMachineKeysSubcommand,
+    TuiCommand, UpdateCommand, UserMachineKeysSubcommand,
 };
 
 #[test]
@@ -304,6 +304,42 @@ fn parses_top_level_config_and_doctor_commands() {
     match doctor.command {
         Command::Doctor(DoctorCommand {}) => {}
         other => panic!("expected doctor command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_top_level_update_command() {
+    let cli = Cli::try_parse_from(["abbot", "update"]).expect("update should parse");
+
+    match cli.command {
+        Command::Update(UpdateCommand {
+            version_list: false,
+            version: None,
+        }) => {}
+        other => panic!("expected update command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_top_level_update_flags() {
+    let list =
+        Cli::try_parse_from(["abbot", "update", "--version-list"]).expect("update list parse");
+    match list.command {
+        Command::Update(UpdateCommand {
+            version_list: true,
+            version: None,
+        }) => {}
+        other => panic!("expected update --version-list command, got {other:?}"),
+    }
+
+    let version = Cli::try_parse_from(["abbot", "update", "--version", "v1.7.0"])
+        .expect("update version parse");
+    match version.command {
+        Command::Update(UpdateCommand {
+            version_list: false,
+            version: Some(value),
+        }) => assert_eq!(value, "v1.7.0"),
+        other => panic!("expected update --version command, got {other:?}"),
     }
 }
 

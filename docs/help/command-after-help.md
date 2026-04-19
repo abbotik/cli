@@ -30,6 +30,7 @@ Use this rough map when navigating the CLI:
 - `cron` for scheduled workflows
 - `fs` for file content and metadata
 - `app` for app-specific path forwarding
+- `update` for refreshing the current CLI binary through its detected install path
 
 Each branch usually accepts either a collection-style command such as `list` or a
 resource-oriented command such as `get`, `create`, `update`, or `delete`.
