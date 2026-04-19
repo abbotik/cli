@@ -8,7 +8,6 @@ pub struct BulkOptions {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = BULK_AFTER_HELP)]
 pub struct BulkCommand {
     #[command(flatten)]
     pub options: BulkOptions,
@@ -18,7 +17,6 @@ pub struct BulkCommand {
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = BULK_AFTER_HELP)]
 pub enum BulkSubcommand {
     /// Execute an arbitrary bulk payload
     Run,

@@ -1,7 +1,6 @@
 use super::*;
 
 #[derive(Args, Debug, Default, Clone)]
-#[command(after_long_help = FS_AFTER_HELP)]
 pub struct FsOptions {
     /// Return filesystem metadata as JSON instead of file content
     #[arg(long)]
@@ -13,7 +12,6 @@ pub struct FsOptions {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = FS_AFTER_HELP)]
 pub struct FsCommand {
     #[command(flatten)]
     pub options: FsOptions,
@@ -23,7 +21,6 @@ pub struct FsCommand {
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = FS_AFTER_HELP)]
 pub enum FsSubcommand {
     Get(PathArg),
     Put(PathArg),

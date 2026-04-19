@@ -44,7 +44,6 @@ pub struct DataOptions {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = DATA_AFTER_HELP)]
 pub struct DataCommand {
     #[command(flatten)]
     pub options: DataOptions,
@@ -54,7 +53,6 @@ pub struct DataCommand {
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = DATA_AFTER_HELP)]
 pub enum DataSubcommand {
     /// List records for a model via GET /api/data/:model
     List(ModelArg),
@@ -80,7 +78,6 @@ pub enum DataSubcommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = DATA_RELATIONSHIP_AFTER_HELP)]
 pub struct RelationshipArg {
     pub model: String,
     pub id: String,
@@ -90,7 +87,6 @@ pub struct RelationshipArg {
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = DATA_RELATIONSHIP_AFTER_HELP)]
 pub enum RelationshipSubcommand {
     /// List child records via GET /api/data/:model/:id/:relationship
     Get,
@@ -105,7 +101,6 @@ pub enum RelationshipSubcommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = DATA_RELATIONSHIP_CHILD_AFTER_HELP)]
 pub struct RelationshipChildCommand {
     pub child: String,
     #[command(subcommand)]
@@ -113,7 +108,6 @@ pub struct RelationshipChildCommand {
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = DATA_RELATIONSHIP_CHILD_AFTER_HELP)]
 pub enum RelationshipChildSubcommand {
     /// Fetch a nested child record via GET /api/data/:model/:id/:relationship/:child
     Get,

@@ -29,6 +29,7 @@ mod app;
 mod auth;
 mod auth_support;
 mod bulk;
+mod command;
 mod config_cmd;
 mod cron;
 mod data;
@@ -78,6 +79,7 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             auth::run(command, &mut config, &client, save_path.as_deref()).await?
         }
         Command::Health => print_json(&client.health().await?)?,
+        Command::Command(command) => command::run(command).await?,
         Command::Config(command) => config_cmd::run(
             command,
             &config,

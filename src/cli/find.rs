@@ -24,7 +24,6 @@ pub struct FindOptions {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = FIND_AFTER_HELP)]
 pub struct FindCommand {
     #[command(flatten)]
     pub options: FindOptions,
@@ -34,7 +33,6 @@ pub struct FindCommand {
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = FIND_AFTER_HELP)]
 pub enum FindSubcommand {
     Query(ModelArg),
     Saved(FindSavedArg),

@@ -1,4 +1,4 @@
-# Abbot CLI
+# abbot
 
 `abbot` is the command-line client for the Abbotik API.
 By default it talks to the public API at `https://api.abbotik.com`.
@@ -9,6 +9,7 @@ larger set of resource-specific branches:
 - `public` for unauthenticated discovery documents
 - `auth` for machine-first bootstrap, human login, token refresh, and tenant selection
 - `health` for a quick service check
+- `command` for embedded markdown docs about a command path
 - `docs` for direct router-shaped API documentation access
 - `describe`, `data`, `find`, `aggregate`, and `bulk` for model and record work
 - `acls`, `stat`, `tracked`, and `trashed` for record metadata and lifecycle
@@ -42,9 +43,48 @@ For existing tenants, the invite path is:
 2. human: `abbot auth register --tenant <tenant> --username <user> --invite-code <code> --email <email> --password <password>`
 3. machine: `abbot auth machine connect --tenant <tenant> --username <user> --invite-code <code> --key @~/.config/secrets/<user>.key`
 
-Use `abbot docs path /docs/api/keys`, `abbot docs path /docs/api/user/machine-keys`,
-`abbot docs path /docs/llm/room`, and `abbot docs path /docs/llm/factory` when
-you need the exact HTTP contract behind a CLI branch.
+Examples:
 
-The CLI prefers explicit subcommands and documented route parity so it can be
-driven by scripts or agents without guessing hidden state.
+```bash
+abbot public llms
+abbot config
+abbot doctor
+abbot update
+abbot command auth machine
+abbot docs path /docs/auth
+abbot tui
+abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key
+abbot keys create --name ci-runner
+abbot docs path /docs/api/keys
+abbot docs path /docs/api/user/machine-keys
+abbot docs path /docs/llm/room
+abbot docs path /docs/llm/factory
+abbot auth register --tenant acme --username alice --email alice@example.com --password secret-pass
+abbot auth login --tenant acme --username alice --password secret-pass
+abbot user invite --username alice --invite-type human
+abbot auth register --tenant acme --username alice --invite-code <code> --email alice@example.com --password secret-pass
+abbot describe list
+abbot data list users
+abbot data get users 123
+abbot auth provision --tenant acme --username machine_root --public-key @machine.pub
+abbot auth provision --tenant acme --username builder_2 --invite-code <code> --public-key @machine.pub
+abbot auth verify --tenant acme --challenge-id <id> --signature @signature.txt
+abbot keys list
+abbot user machine-keys list
+abbot find query users --where '{"active":true}'
+abbot aggregate run users --count
+abbot bulk export
+abbot fs get /docs/README.md
+```
+
+The global `--format` flag currently accepts `json` only.
+
+Machine-readable output is available with `--format json`:
+
+```bash
+abbot --format json auth login --tenant acme --username alice --password secret-pass
+abbot --format json describe list
+```
+
+If you are automating against Abbotik, start from `public llms` and the `docs`
+branch, then move down into the resource branch you need.

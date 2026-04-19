@@ -32,7 +32,6 @@ pub struct AggregateOptions {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AGGREGATE_AFTER_HELP)]
 pub struct AggregateCommand {
     #[command(flatten)]
     pub options: AggregateOptions,
@@ -42,7 +41,6 @@ pub struct AggregateCommand {
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = AGGREGATE_AFTER_HELP)]
 pub enum AggregateSubcommand {
     Get(ModelArg),
     Run(ModelArg),

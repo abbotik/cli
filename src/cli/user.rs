@@ -1,14 +1,12 @@
 use super::*;
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_AFTER_HELP)]
 pub struct UserCommand {
     #[command(subcommand)]
     pub command: UserSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = USER_AFTER_HELP)]
 pub enum UserSubcommand {
     /// Show the current authenticated user profile
     Me(UserMeCommand),
@@ -37,15 +35,12 @@ pub enum UserSubcommand {
 }
 
 #[derive(Args, Debug, Default)]
-#[command(after_long_help = USER_ME_AFTER_HELP)]
 pub struct UserMeCommand {}
 
 #[derive(Args, Debug, Default)]
-#[command(after_long_help = USER_INTROSPECT_AFTER_HELP)]
 pub struct UserIntrospectCommand {}
 
 #[derive(Args, Debug, Default)]
-#[command(after_long_help = USER_LIST_AFTER_HELP)]
 pub struct UserListCommand {
     /// Maximum number of records to return
     #[arg(long)]
@@ -57,7 +52,6 @@ pub struct UserListCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_CREATE_AFTER_HELP)]
 pub struct UserCreateCommand {
     /// JSON body from stdin or use --body to inline it
     #[arg(long)]
@@ -77,7 +71,6 @@ pub struct UserCreateCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_INVITE_AFTER_HELP)]
 pub struct UserInviteCommand {
     /// Canonical username to reserve for the invited user
     #[arg(long)]
@@ -109,14 +102,12 @@ pub struct UserInviteCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_KEYS_AFTER_HELP)]
 pub struct UserMachineKeysCommand {
     #[command(subcommand)]
     pub command: UserMachineKeysSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = USER_KEYS_AFTER_HELP)]
 pub enum UserMachineKeysSubcommand {
     /// List tenant machine keys with fingerprint-first metadata
     List,
@@ -129,7 +120,6 @@ pub enum UserMachineKeysSubcommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_KEYS_CREATE_AFTER_HELP)]
 pub struct UserMachineKeysCreateCommand {
     /// Tenant-local user ID to bind the key to
     #[arg(long = "user-id")]
@@ -153,7 +143,6 @@ pub struct UserMachineKeysCreateCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_KEYS_ROTATE_AFTER_HELP)]
 pub struct UserMachineKeysRotateCommand {
     /// Existing key ID to rotate
     #[arg(long = "key-id")]
@@ -177,13 +166,11 @@ pub struct UserMachineKeysRotateCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_KEYS_DELETE_AFTER_HELP)]
 pub struct UserMachineKeyIdArg {
     pub key_id: String,
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_DELETE_AFTER_HELP)]
 pub struct UserDeleteCommand {
     pub id: String,
 
@@ -197,7 +184,6 @@ pub struct UserDeleteCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_PASSWORD_AFTER_HELP)]
 pub struct UserPasswordCommand {
     pub id: String,
 
@@ -211,7 +197,6 @@ pub struct UserPasswordCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_SUDO_AFTER_HELP)]
 pub struct UserSudoCommand {
     /// Audit-trail reason for the elevation
     #[arg(long)]
@@ -219,7 +204,6 @@ pub struct UserSudoCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = USER_FAKE_AFTER_HELP)]
 pub struct UserFakeCommand {
     /// Target user ID to impersonate
     #[arg(long = "user-id")]

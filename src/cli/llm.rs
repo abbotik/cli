@@ -1,14 +1,12 @@
 use super::*;
 
 #[derive(Args, Debug)]
-#[command(after_long_help = LLM_AFTER_HELP)]
 pub struct LlmCommand {
     #[command(subcommand)]
     pub command: LlmSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = LLM_AFTER_HELP)]
 pub enum LlmSubcommand {
     /// List enabled rentable models grouped by provider
     Providers(LlmProvidersCommand),
@@ -23,26 +21,21 @@ pub enum LlmSubcommand {
 }
 
 #[derive(Args, Debug, Default)]
-#[command(after_long_help = LLM_PROVIDERS_AFTER_HELP)]
 pub struct LlmProvidersCommand {}
 
 #[derive(Args, Debug, Default)]
-#[command(after_long_help = LLM_MODELS_AFTER_HELP)]
 pub struct LlmModelsCommand {}
 
 #[derive(Args, Debug, Default)]
-#[command(after_long_help = LLM_SKILLS_AFTER_HELP)]
 pub struct LlmSkillsCommand {}
 
 #[derive(Args, Debug)]
-#[command(after_long_help = LLM_ROOM_AFTER_HELP)]
 pub struct LlmRoomCommand {
     #[command(subcommand)]
     pub command: LlmRoomSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = LLM_ROOM_AFTER_HELP)]
 pub enum LlmRoomSubcommand {
     /// List visible rooms
     List,
@@ -67,7 +60,6 @@ pub enum LlmRoomSubcommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = LLM_ROOM_AFTER_HELP)]
 pub struct LlmRoomEventsCommand {
     pub id: String,
 
@@ -77,14 +69,12 @@ pub struct LlmRoomEventsCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = LLM_FACTORY_AFTER_HELP)]
 pub struct LlmFactoryCommand {
     #[command(subcommand)]
     pub command: LlmFactorySubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = LLM_FACTORY_AFTER_HELP)]
 pub enum LlmFactorySubcommand {
     /// List visible factory runs
     List,

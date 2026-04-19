@@ -344,6 +344,19 @@ fn parses_top_level_update_flags() {
 }
 
 #[test]
+fn parses_command_docs_path() {
+    let cli = Cli::try_parse_from(["abbot", "command", "auth", "machine", "connect"])
+        .expect("command docs path should parse");
+
+    match cli.command {
+        Command::Command(command) => {
+            assert_eq!(command.path, vec!["auth", "machine", "connect"]);
+        }
+        other => panic!("expected command docs command, got {other:?}"),
+    }
+}
+
+#[test]
 fn parses_user_introspect_command() {
     let cli =
         Cli::try_parse_from(["abbot", "user", "introspect"]).expect("introspect should parse");

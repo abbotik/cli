@@ -1,14 +1,12 @@
 use super::*;
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_AFTER_HELP)]
 pub struct AuthCommand {
     #[command(subcommand)]
     pub command: AuthSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = AUTH_AFTER_HELP)]
 pub enum AuthSubcommand {
     /// Log in to an existing tenant
     Login(AuthLoginCommand),
@@ -33,11 +31,9 @@ pub enum AuthSubcommand {
 }
 
 #[derive(Args, Debug, Default)]
-#[command(after_long_help = AUTH_TENANTS_AFTER_HELP)]
 pub struct AuthTenantsCommand {}
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_LOGIN_AFTER_HELP)]
 pub struct AuthLoginCommand {
     /// Tenant name to authenticate against
     #[arg(long)]
@@ -61,7 +57,6 @@ pub struct AuthLoginCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_REGISTER_AFTER_HELP)]
 pub struct AuthRegisterCommand {
     /// Tenant name to register
     #[arg(long)]
@@ -85,7 +80,6 @@ pub struct AuthRegisterCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_REFRESH_AFTER_HELP)]
 pub struct AuthRefreshCommand {
     /// Refresh token to exchange; defaults to the saved token
     #[arg(long)]
@@ -93,7 +87,6 @@ pub struct AuthRefreshCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_PROVISION_AFTER_HELP)]
 pub struct AuthProvisionCommand {
     /// Tenant name to provision
     #[arg(long)]
@@ -129,7 +122,6 @@ pub struct AuthProvisionCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_CHALLENGE_AFTER_HELP)]
 pub struct AuthChallengeCommand {
     /// Tenant name to authenticate against
     #[arg(long)]
@@ -145,7 +137,6 @@ pub struct AuthChallengeCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_VERIFY_AFTER_HELP)]
 pub struct AuthVerifyCommand {
     /// Tenant name to authenticate against
     #[arg(long)]
@@ -169,21 +160,18 @@ pub struct AuthVerifyCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_MACHINE_AFTER_HELP)]
 pub struct AuthMachineCommand {
     #[command(subcommand)]
     pub command: AuthMachineSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = AUTH_MACHINE_AFTER_HELP)]
 pub enum AuthMachineSubcommand {
     /// Connect a machine key by provisioning or re-verifying automatically
     Connect(AuthMachineConnectCommand),
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_MACHINE_CONNECT_AFTER_HELP)]
 pub struct AuthMachineConnectCommand {
     /// Tenant name to authenticate against
     #[arg(long)]
@@ -215,14 +203,12 @@ pub struct AuthMachineConnectCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_DISSOLVE_AFTER_HELP)]
 pub struct AuthDissolveCommand {
     #[command(subcommand)]
     pub command: AuthDissolveSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = AUTH_DISSOLVE_AFTER_HELP)]
 pub enum AuthDissolveSubcommand {
     /// Request a short-lived dissolution confirmation token
     Request(AuthDissolveRequestCommand),
@@ -231,7 +217,6 @@ pub enum AuthDissolveSubcommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_DISSOLVE_AFTER_HELP)]
 pub struct AuthDissolveRequestCommand {
     /// Tenant name to dissolve
     #[arg(long)]
@@ -247,7 +232,6 @@ pub struct AuthDissolveRequestCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_DISSOLVE_CONFIRM_AFTER_HELP)]
 pub struct AuthDissolveConfirmCommand {
     /// Confirmation token from auth dissolve request
     #[arg(long = "confirmation-token")]
@@ -255,14 +239,12 @@ pub struct AuthDissolveConfirmCommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_TOKEN_AFTER_HELP)]
 pub struct AuthTokenCommand {
     #[command(subcommand)]
     pub command: AuthTokenSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
-#[command(after_long_help = AUTH_TOKEN_AFTER_HELP)]
 pub enum AuthTokenSubcommand {
     /// Print the saved JWT
     Get,
@@ -273,7 +255,6 @@ pub enum AuthTokenSubcommand {
 }
 
 #[derive(Args, Debug)]
-#[command(after_long_help = AUTH_TOKEN_AFTER_HELP)]
 pub struct AuthTokenSetCommand {
     /// JWT value to save; use - for stdin or @<path> for a file
     pub token: String,

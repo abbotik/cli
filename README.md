@@ -10,6 +10,7 @@ Two human-first inspection commands now exist:
 - `abbot config` to show the active config file, host, and saved auth summary
 - `abbot doctor` to explain whether the saved auth actually works and what to run next
 - `abbot update` to refresh the current CLI binary using the install method it detects
+- `abbot command <path...>` to print the embedded markdown doc for a command path
 
 ## Release and install
 
