@@ -15,6 +15,7 @@ Two human-first inspection commands now exist:
 The release process is tag-based and publishes GitHub Release assets for:
 
 - `x86_64-unknown-linux-gnu`
+- `aarch64-unknown-linux-gnu`
 - `x86_64-apple-darwin`
 - `aarch64-apple-darwin`
 - Homebrew artifacts mirrored to `abbotik/homebrew-releases`
