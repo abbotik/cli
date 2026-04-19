@@ -7,8 +7,8 @@ The CLI stores its default config at `~/.config/abbot/cli/config.toml`. Pass `--
 
 Two human-first inspection commands now exist:
 
-- `abbot config` to show the active config file, host, and saved auth summary
-- `abbot doctor` to explain whether the saved auth actually works and what to run next
+- `abbot config` to manage named config profiles and inspect local config state
+- `abbot doctor` to check the live server connection, health, and auth state
 - `abbot update` to refresh the current CLI binary using the install method it detects
 - `abbot command <path...>` to print the embedded markdown doc for a command path
 

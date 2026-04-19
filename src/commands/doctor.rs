@@ -16,6 +16,7 @@ pub(super) async fn run(
         .and_then(|value| value.as_str())
         .map(ToOwned::to_owned);
 
+    let health = probe_health(client).await;
     let introspect = probe_introspect(client, token.is_some()).await;
     let refresh_probe = match auth_type.as_deref() {
         Some("username") if token.is_some() => probe_refresh(client, token.unwrap()).await,
@@ -25,9 +26,9 @@ pub(super) async fn run(
         },
     };
 
-    let diagnosis = diagnosis_for(config, &introspect, &refresh_probe);
-    let next_steps = next_steps_for(config, &introspect, &refresh_probe);
-    let ok = matches!(introspect, IntrospectProbe::Ok(_));
+    let diagnosis = diagnosis_for(config, &health, &introspect, &refresh_probe);
+    let next_steps = next_steps_for(config, &health, &introspect, &refresh_probe);
+    let ok = matches!(health, HealthProbe::Ok(_)) && matches!(introspect, IntrospectProbe::Ok(_));
 
     let report = json!({
         "ok": ok,
@@ -35,6 +36,7 @@ pub(super) async fn run(
         "config_path": save_path.map(|path| path.display().to_string()),
         "base_url": client.base_url().to_string(),
         "token": token_summary,
+        "health": health.to_json(),
         "introspect": introspect.to_json(),
         "refresh_probe": refresh_probe.to_json(),
         "diagnosis": diagnosis,
@@ -48,6 +50,29 @@ pub(super) async fn run(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+enum HealthProbe {
+    Ok(Value),
+    Err { error: String },
+}
+
+impl HealthProbe {
+    fn to_json(&self) -> Value {
+        match self {
+            HealthProbe::Ok(response) => json!({
+                "attempted": true,
+                "ok": true,
+                "response": response,
+            }),
+            HealthProbe::Err { error } => json!({
+                "attempted": true,
+                "ok": false,
+                "error": error,
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -126,6 +151,15 @@ async fn probe_introspect(client: &ApiClient, has_token: bool) -> IntrospectProb
     }
 }
 
+async fn probe_health(client: &ApiClient) -> HealthProbe {
+    match client.health().await {
+        Ok(value) => HealthProbe::Ok(serde_json::to_value(value).unwrap_or(Value::Null)),
+        Err(error) => HealthProbe::Err {
+            error: error.to_string(),
+        },
+    }
+}
+
 async fn probe_refresh(client: &ApiClient, token: &str) -> RefreshProbe {
     match client
         .auth_refresh(&RefreshRequest {
@@ -167,9 +201,14 @@ fn probe_machine_refresh(config: &AbbotikConfig) -> RefreshProbe {
 
 fn diagnosis_for(
     config: &AbbotikConfig,
+    health: &HealthProbe,
     introspect: &IntrospectProbe,
     refresh_probe: &RefreshProbe,
 ) -> String {
+    if let HealthProbe::Err { error } = health {
+        return format!("The configured server could not be reached cleanly: {error}");
+    }
+
     if config.token().is_none() {
         return "No saved bearer token exists for the active profile.".to_string();
     }
@@ -203,9 +242,18 @@ fn diagnosis_for(
 
 fn next_steps_for(
     config: &AbbotikConfig,
+    health: &HealthProbe,
     introspect: &IntrospectProbe,
     refresh_probe: &RefreshProbe,
 ) -> Vec<String> {
+    if let HealthProbe::Err { .. } = health {
+        return vec![
+            "Run `abbot config` to confirm the active base URL and selected profile.".to_string(),
+            "Run `abbot health` to retry the live server check directly.".to_string(),
+            "Fix the server URL or network path before debugging auth state further.".to_string(),
+        ];
+    }
+
     if config.token().is_none() {
         return vec![
             "Run `abbot config` to confirm the active base URL and config file.".to_string(),
@@ -255,6 +303,7 @@ fn render_human_report(report: &Value) -> String {
     let base_url = string_or(report.get("base_url"), "unknown");
     let profile = string_or(report.get("profile"), "default");
     let token = report.get("token").unwrap_or(&Value::Null);
+    let health = report.get("health").unwrap_or(&Value::Null);
     let introspect = report.get("introspect").unwrap_or(&Value::Null);
     let refresh = report.get("refresh_probe").unwrap_or(&Value::Null);
     let diagnosis = string_or(report.get("diagnosis"), "No diagnosis available.");
@@ -305,6 +354,22 @@ fn render_human_report(report: &Value) -> String {
         ),
     };
 
+    let health_line = match health.get("ok").and_then(Value::as_bool) {
+        Some(true) => {
+            let status = health
+                .get("response")
+                .and_then(|value| value.get("data"))
+                .and_then(|value| value.get("status"))
+                .and_then(Value::as_str)
+                .unwrap_or("ok");
+            format!("reachable ({status})")
+        }
+        _ => format!(
+            "failed ({})",
+            string_or(health.get("error"), "unknown error")
+        ),
+    };
+
     let refresh_line = match (
         refresh
             .get("attempted")
@@ -350,6 +415,7 @@ fn render_human_report(report: &Value) -> String {
         format!("  expires: {expires_at}"),
         String::new(),
         "Checks".to_string(),
+        format!("  health: {health_line}"),
         format!("  introspect: {introspect_line}"),
         format!("  refresh: {refresh_line}"),
         String::new(),
@@ -400,6 +466,7 @@ mod tests {
         let config = AbbotikConfig::default();
         let diagnosis = diagnosis_for(
             &config,
+            &HealthProbe::Ok(json!({"data": {"status": "ok"}})),
             &IntrospectProbe::Skipped {
                 reason: "no saved bearer token".to_string(),
             },
@@ -418,6 +485,7 @@ mod tests {
         let config = AbbotikConfig::default().with_token("header.payload.sig");
         let steps = next_steps_for(
             &config,
+            &HealthProbe::Ok(json!({"data": {"status": "ok"}})),
             &IntrospectProbe::Err {
                 error: "token rejected".to_string(),
             },
@@ -446,6 +514,15 @@ mod tests {
                 "access": "root",
                 "expires_at": "2026-04-25T03:51:51+00:00"
             },
+            "health": {
+                "attempted": true,
+                "ok": true,
+                "response": {
+                    "data": {
+                        "status": "ok"
+                    }
+                }
+            },
             "introspect": {
                 "attempted": true,
                 "ok": true,
@@ -473,6 +550,7 @@ mod tests {
         assert!(output.contains("Checks"));
         assert!(output.contains("Diagnosis"));
         assert!(output.contains("Next Steps"));
+        assert!(output.contains("health: reachable (ok)"));
         assert!(output.contains("accepted by server as ianzepp@ianzepp"));
     }
 }

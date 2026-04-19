@@ -1,12 +1,20 @@
 # Config
 
-Show the active CLI config summary for the current profile.
+Manage named CLI config profiles and inspect local config state.
 
-This is the human entrypoint for:
+Common commands:
 
-- which config file is active
-- which base URL is active
-- whether a saved bearer token exists
-- whether machine-auth metadata is saved
+- `abbot config create <name> [url]`
+- `abbot config use <name>`
+- `abbot config list`
+- `abbot config show <name>`
+- `abbot config set <name> <key> <value>`
+- `abbot config set <name> <key> --unset`
+- `abbot config get <name> <key>`
+- `abbot config delete <name>`
+- `abbot config doctor`
 
-Use `abbot config` before guessing at auth state.
+Use `abbot config doctor` for local config integrity checks only.
+
+Use top-level `abbot doctor` when you want live connection, health, and auth
+status against the currently configured server.

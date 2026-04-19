@@ -13,6 +13,7 @@ const CONFIG_DIR_NAME: &str = "abbot";
 const CONFIG_DIR_CLI_NAME: &str = "cli";
 const CONFIG_DIR_PROFILES_NAME: &str = "configs";
 const CONFIG_FILE_NAME: &str = "config.toml";
+const CURRENT_PROFILE_FILE_NAME: &str = "current-profile";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct MachineAuthConfig {
@@ -48,6 +49,100 @@ pub enum OutputFormat {
 }
 
 impl AbbotikConfig {
+    pub fn config_root() -> Result<PathBuf, AbbotikError> {
+        let home = dirs::home_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
+        Ok(home
+            .join(".config")
+            .join(CONFIG_DIR_NAME)
+            .join(CONFIG_DIR_CLI_NAME))
+    }
+
+    pub fn profiles_dir() -> Result<PathBuf, AbbotikError> {
+        Ok(Self::config_root()?.join(CONFIG_DIR_PROFILES_NAME))
+    }
+
+    pub fn current_profile_path() -> Result<PathBuf, AbbotikError> {
+        Ok(Self::config_root()?.join(CURRENT_PROFILE_FILE_NAME))
+    }
+
+    pub fn load_current_profile() -> Result<Option<String>, AbbotikError> {
+        let path = Self::current_profile_path()?;
+        let raw = match fs::read_to_string(&path) {
+            Ok(raw) => raw,
+            Err(source) if source.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(source) => {
+                return Err(AbbotikError::ConfigRead {
+                    path: path.display().to_string(),
+                    source,
+                });
+            }
+        };
+
+        let profile = raw.trim();
+        if profile.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(profile.to_string()))
+        }
+    }
+
+    pub fn save_current_profile(profile: &str) -> Result<(), AbbotikError> {
+        let path = Self::current_profile_path()?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|source| AbbotikError::ConfigWrite {
+                path: parent.display().to_string(),
+                source,
+            })?;
+        }
+
+        fs::write(&path, format!("{profile}\n")).map_err(|source| AbbotikError::ConfigWrite {
+            path: path.display().to_string(),
+            source,
+        })
+    }
+
+    pub fn clear_current_profile() -> Result<(), AbbotikError> {
+        let path = Self::current_profile_path()?;
+        match fs::remove_file(&path) {
+            Ok(_) => Ok(()),
+            Err(source) if source.kind() == ErrorKind::NotFound => Ok(()),
+            Err(source) => Err(AbbotikError::ConfigWrite {
+                path: path.display().to_string(),
+                source,
+            }),
+        }
+    }
+
+    pub fn list_profiles() -> Result<Vec<String>, AbbotikError> {
+        let dir = Self::profiles_dir()?;
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(source) if source.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(source) => {
+                return Err(AbbotikError::ConfigRead {
+                    path: dir.display().to_string(),
+                    source,
+                });
+            }
+        };
+
+        let mut profiles = entries
+            .filter_map(Result::ok)
+            .filter_map(|entry| {
+                let path = entry.path();
+                let extension = path.extension()?.to_str()?;
+                if extension != "toml" {
+                    return None;
+                }
+                path.file_stem()
+                    .and_then(|value| value.to_str())
+                    .map(ToOwned::to_owned)
+            })
+            .collect::<Vec<_>>();
+        profiles.sort_unstable();
+        Ok(profiles)
+    }
+
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into(),
@@ -86,11 +181,7 @@ impl AbbotikConfig {
     }
 
     pub fn config_path(profile: Option<&str>) -> Result<PathBuf, AbbotikError> {
-        let home = dirs::home_dir().ok_or(AbbotikError::ConfigPathUnavailable)?;
-        let config_root = home
-            .join(".config")
-            .join(CONFIG_DIR_NAME)
-            .join(CONFIG_DIR_CLI_NAME);
+        let config_root = Self::config_root()?;
 
         match profile.filter(|value| !value.trim().is_empty()) {
             Some(profile) => Ok(config_root
@@ -111,6 +202,7 @@ impl AbbotikConfig {
                     .map(|value| value.trim().to_string())
                     .filter(|value| !value.is_empty())
             })
+            .or_else(|| Self::load_current_profile().ok().flatten())
     }
 
     pub fn load(profile: Option<&str>) -> Result<Self, AbbotikError> {
@@ -138,6 +230,11 @@ impl AbbotikConfig {
     pub fn save(&self, profile: Option<&str>) -> Result<(), AbbotikError> {
         let path = Self::config_path(profile)?;
         self.save_to_path(&path)
+    }
+
+    pub fn load_existing(profile: &str) -> Result<Self, AbbotikError> {
+        let path = Self::config_path(Some(profile))?;
+        Self::load_from_path(path)
     }
 
     pub fn save_to_path(&self, path: impl AsRef<Path>) -> Result<(), AbbotikError> {
@@ -252,6 +349,7 @@ mod tests {
         unsafe {
             std::env::remove_var("ABBOTIK_CONFIG");
         }
+        let _ = AbbotikConfig::clear_current_profile();
         assert_eq!(AbbotikConfig::selected_profile(None), None);
 
         unsafe {
@@ -269,6 +367,7 @@ mod tests {
         unsafe {
             std::env::remove_var("ABBOTIK_CONFIG");
         }
+        let _ = AbbotikConfig::clear_current_profile();
     }
 
     #[test]

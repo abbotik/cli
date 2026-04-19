@@ -1,9 +1,9 @@
 use clap::Parser;
 
 use crate::cli::{
-    AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, DataSubcommand,
-    DoctorCommand, KeysSubcommand, LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand,
-    TuiCommand, UpdateCommand, UserMachineKeysSubcommand,
+    AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, ConfigSubcommand,
+    DataSubcommand, DoctorCommand, KeysSubcommand, LlmFactorySubcommand, LlmRoomSubcommand,
+    LlmSubcommand, TuiCommand, UpdateCommand, UserMachineKeysSubcommand,
 };
 
 #[test]
@@ -296,7 +296,7 @@ fn parses_top_level_tui_command() {
 fn parses_top_level_config_and_doctor_commands() {
     let config = Cli::try_parse_from(["abbot", "config"]).expect("config should parse");
     match config.command {
-        Command::Config(ConfigCommand {}) => {}
+        Command::Config(ConfigCommand { command: None }) => {}
         other => panic!("expected config command, got {other:?}"),
     }
 
@@ -304,6 +304,118 @@ fn parses_top_level_config_and_doctor_commands() {
     match doctor.command {
         Command::Doctor(DoctorCommand {}) => {}
         other => panic!("expected doctor command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_config_management_commands() {
+    let create = Cli::try_parse_from([
+        "abbot",
+        "config",
+        "create",
+        "staging",
+        "https://example.com",
+    ])
+    .expect("config create should parse");
+    match create.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Create(args)),
+        }) => {
+            assert_eq!(args.name, "staging");
+            assert_eq!(args.url.as_deref(), Some("https://example.com"));
+        }
+        other => panic!("expected config create command, got {other:?}"),
+    }
+
+    let use_profile = Cli::try_parse_from(["abbot", "config", "use", "staging"])
+        .expect("config use should parse");
+    match use_profile.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Use(args)),
+        }) => assert_eq!(args.name, "staging"),
+        other => panic!("expected config use command, got {other:?}"),
+    }
+
+    let list = Cli::try_parse_from(["abbot", "config", "list"]).expect("config list should parse");
+    match list.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::List),
+        }) => {}
+        other => panic!("expected config list command, got {other:?}"),
+    }
+
+    let show =
+        Cli::try_parse_from(["abbot", "config", "show", "prod"]).expect("config show should parse");
+    match show.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Show(args)),
+        }) => assert_eq!(args.name, "prod"),
+        other => panic!("expected config show command, got {other:?}"),
+    }
+
+    let set = Cli::try_parse_from([
+        "abbot",
+        "config",
+        "set",
+        "prod",
+        "base_url",
+        "https://api.example.com",
+    ])
+    .expect("config set should parse");
+    match set.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Set(args)),
+        }) => {
+            assert_eq!(args.name, "prod");
+            assert_eq!(args.key, "base_url");
+            assert_eq!(args.value.as_deref(), Some("https://api.example.com"));
+            assert!(!args.unset);
+        }
+        other => panic!("expected config set command, got {other:?}"),
+    }
+
+    let unset = Cli::try_parse_from(["abbot", "config", "set", "prod", "token", "--unset"])
+        .expect("config set --unset should parse");
+    match unset.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Set(args)),
+        }) => {
+            assert_eq!(args.name, "prod");
+            assert_eq!(args.key, "token");
+            assert!(args.value.is_none());
+            assert!(args.unset);
+        }
+        other => panic!("expected config unset command, got {other:?}"),
+    }
+
+    let get = Cli::try_parse_from(["abbot", "config", "get", "prod", "token"])
+        .expect("config get should parse");
+    match get.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Get(args)),
+        }) => {
+            assert_eq!(args.name, "prod");
+            assert_eq!(args.key, "token");
+        }
+        other => panic!("expected config get command, got {other:?}"),
+    }
+
+    let delete = Cli::try_parse_from(["abbot", "config", "delete", "prod"])
+        .expect("config delete should parse");
+    match delete.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Delete(args)),
+        }) => assert_eq!(args.name, "prod"),
+        other => panic!("expected config delete command, got {other:?}"),
+    }
+
+    let doctor =
+        Cli::try_parse_from(["abbot", "config", "doctor"]).expect("config doctor should parse");
+    match doctor.command {
+        Command::Config(ConfigCommand {
+            command: Some(ConfigSubcommand::Doctor),
+        }) => {}
+        other => panic!("expected config doctor command, got {other:?}"),
     }
 }
 
