@@ -153,14 +153,28 @@ fn use_profile(args: ConfigUseCommand) -> anyhow::Result<()> {
 fn list_profiles(selected_profile: Option<&str>) -> anyhow::Result<()> {
     let profiles = AbbotikConfig::list_profiles()?;
     let current = AbbotikConfig::load_current_profile()?;
+    let default_path = AbbotikConfig::config_path(None)?;
+    let mut listed_profiles = vec![json!({
+        "name": "default",
+        "kind": "default",
+        "active": selected_profile.is_none(),
+        "selected_by_current_profile": current.is_none(),
+        "config_path": default_path.display().to_string(),
+        "exists": default_path.exists(),
+    })];
+
+    listed_profiles.extend(profiles.iter().map(|profile| json!({
+        "name": profile,
+        "kind": "named",
+        "active": selected_profile == Some(profile.as_str()),
+        "selected_by_current_profile": current.as_deref() == Some(profile.as_str()),
+        "config_path": AbbotikConfig::config_path(Some(profile)).ok().map(|path| path.display().to_string()),
+        "exists": true,
+    })));
+
     print_json(&json!({
-        "profiles": profiles.iter().map(|profile| json!({
-            "name": profile,
-            "active": selected_profile == Some(profile.as_str()),
-            "selected_by_current_profile": current.as_deref() == Some(profile.as_str()),
-            "config_path": AbbotikConfig::config_path(Some(profile)).ok().map(|path| path.display().to_string()),
-        })).collect::<Vec<_>>(),
-        "active_profile": selected_profile,
+        "profiles": listed_profiles,
+        "active_profile": selected_profile.unwrap_or("default"),
         "current_profile": current,
     }))
 }

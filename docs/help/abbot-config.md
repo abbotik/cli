@@ -16,5 +16,9 @@ Common commands:
 
 Use `abbot config doctor` for local config integrity checks only.
 
+`abbot config list` includes the legacy/default profile at
+`~/.config/abbot/cli/config.toml` alongside any named profiles under
+`~/.config/abbot/cli/configs/`.
+
 Use top-level `abbot doctor` when you want live connection, health, and auth
 status against the currently configured server.

@@ -227,6 +227,19 @@ fn parses_invited_human_and_user_invite_commands() {
         },
         other => panic!("expected user command, got {other:?}"),
     }
+
+    let invalid_user_create = Cli::try_parse_from([
+        "abbot",
+        "user",
+        "create",
+        "--name",
+        "anon",
+        "--auth",
+        "anon",
+        "--access",
+        "user",
+    ]);
+    assert!(invalid_user_create.is_err(), "invalid access should fail clap parsing");
 }
 
 #[test]

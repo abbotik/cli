@@ -65,8 +65,8 @@ pub struct UserCreateCommand {
     #[arg(long)]
     pub auth: Option<String>,
 
-    /// Optional access level
-    #[arg(long)]
+    /// Optional access level: deny, read, edit, full, or root
+    #[arg(long, value_parser = ["deny", "read", "edit", "full", "root"])]
     pub access: Option<String>,
 }
 
@@ -80,8 +80,8 @@ pub struct UserInviteCommand {
     #[arg(long = "invite-type")]
     pub invite_type: Option<String>,
 
-    /// Tenant-local access level for the invited user
-    #[arg(long)]
+    /// Tenant-local access level for the invited user: deny, read, edit, full, or root
+    #[arg(long, value_parser = ["deny", "read", "edit", "full", "root"])]
     pub access: Option<String>,
 
     /// Record-level read grants to attach to the invite
