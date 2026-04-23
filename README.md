@@ -103,6 +103,24 @@ Machine clients should use:
 2. `abbot auth refresh` when the saved machine token expires; `abbot` auto-detects public-key auth and runs challenge→sign→verify using the saved key path
 3. `abbot user machine-keys list`
 
+User-scoped provider secrets should use:
+
+```bash
+abbot user secrets create \
+  --name openrouter_primary \
+  --value @~/.config/secrets/openrouter.key \
+  --kind api_key \
+  --metadata '{"provider":"openrouter"}'
+
+abbot user secrets list
+abbot user secrets update openrouter_primary --value @~/.config/secrets/openrouter.key
+abbot user secrets delete openrouter_primary
+```
+
+The API encrypts secret values at rest and CLI list/delete responses only show
+metadata returned by `/api/user/secrets`; plaintext is sent only on create or
+update.
+
 ## TUI
 
 `abbot tui` opens a terminal operator console over the real Abbotik room and

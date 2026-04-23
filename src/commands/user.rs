@@ -48,6 +48,33 @@ pub(super) async fn run(command: UserCommand, client: &ApiClient) -> anyhow::Res
                     .await?,
             )?,
         },
+        UserSubcommand::Secrets(command) => match command.command {
+            UserSecretsSubcommand::List => {
+                print_json(&client.get_json::<Value>("/api/user/secrets").await?)?
+            }
+            UserSecretsSubcommand::Create(args) => {
+                let body = user_secrets_create_body(args)?;
+                print_json(
+                    &client
+                        .post_json::<_, Value>("/api/user/secrets", &body)
+                        .await?,
+                )?
+            }
+            UserSecretsSubcommand::Update(args) => {
+                let name = args.name.clone();
+                let body = user_secrets_update_body(args)?;
+                print_json(
+                    &client
+                        .put_json::<_, Value>(&format!("/api/user/secrets/{name}"), &body)
+                        .await?,
+                )?
+            }
+            UserSecretsSubcommand::Delete(arg) => print_json(
+                &client
+                    .delete_json::<Value>(&format!("/api/user/secrets/{}", arg.name))
+                    .await?,
+            )?,
+        },
         UserSubcommand::Get(arg) => print_json(
             &client
                 .get_json::<Value>(&format!("/api/user/{}", arg.id))
@@ -191,6 +218,68 @@ fn user_machine_keys_rotate_body(args: UserMachineKeysRotateCommand) -> anyhow::
     Ok(Value::Object(object))
 }
 
+fn user_secrets_create_body(args: UserSecretsCreateCommand) -> anyhow::Result<Value> {
+    if let Some(body) = args.body {
+        return Ok(serde_json::from_str(&body)?);
+    }
+
+    let mut object = Map::new();
+    if let Some(name) = args.name {
+        object.insert("name".to_string(), Value::String(name));
+    }
+    if let Some(value) = read_secret_source_option(args.value.as_deref())? {
+        object.insert("value".to_string(), Value::String(value));
+    }
+    if let Some(kind) = args.kind {
+        object.insert("kind".to_string(), Value::String(kind));
+    }
+    if let Some(description) = args.description {
+        object.insert("description".to_string(), Value::String(description));
+    }
+    if let Some(metadata) = read_metadata_source(args.metadata.as_deref())? {
+        object.insert("metadata".to_string(), metadata);
+    }
+
+    if object.is_empty() {
+        return read_json_body_or_default(json!({}));
+    }
+
+    Ok(Value::Object(object))
+}
+
+fn user_secrets_update_body(args: UserSecretsUpdateCommand) -> anyhow::Result<Value> {
+    if let Some(body) = args.body {
+        return Ok(serde_json::from_str(&body)?);
+    }
+
+    let mut object = Map::new();
+    if let Some(value) = read_secret_source_option(args.value.as_deref())? {
+        object.insert("value".to_string(), Value::String(value));
+    }
+    if let Some(kind) = args.kind {
+        object.insert("kind".to_string(), Value::String(kind));
+    }
+    if let Some(description) = args.description {
+        object.insert("description".to_string(), Value::String(description));
+    }
+    if let Some(metadata) = read_metadata_source(args.metadata.as_deref())? {
+        object.insert("metadata".to_string(), metadata);
+    }
+
+    if object.is_empty() {
+        return read_json_body_or_default(json!({}));
+    }
+
+    Ok(Value::Object(object))
+}
+
+fn read_metadata_source(source: Option<&str>) -> anyhow::Result<Option<Value>> {
+    match source {
+        Some(source) => Ok(Some(read_json_source(source)?)),
+        None => Ok(None),
+    }
+}
+
 struct PasswordBody {
     id: String,
     body: Value,
@@ -225,11 +314,13 @@ fn user_password_body(args: UserPasswordCommand) -> anyhow::Result<PasswordBody>
 mod tests {
     use super::{
         user_create_body, user_invite_request, user_list_query, user_machine_keys_create_body,
-        user_machine_keys_rotate_body, user_password_body, PasswordBody,
+        user_machine_keys_rotate_body, user_password_body, user_secrets_create_body,
+        user_secrets_update_body, PasswordBody,
     };
     use crate::cli::{
         UserCreateCommand, UserInviteCommand, UserListCommand, UserMachineKeysCreateCommand,
-        UserMachineKeysRotateCommand, UserPasswordCommand,
+        UserMachineKeysRotateCommand, UserPasswordCommand, UserSecretsCreateCommand,
+        UserSecretsUpdateCommand,
     };
     use serde_json::json;
 
@@ -321,6 +412,73 @@ mod tests {
                 "algorithm": "ed25519",
                 "new_name": "next",
                 "revoke_old_after_seconds": 300
+            })
+        );
+    }
+
+    #[test]
+    fn user_secrets_create_body_builds_object_from_flags() {
+        let body = user_secrets_create_body(UserSecretsCreateCommand {
+            body: None,
+            name: Some("openrouter_primary".to_string()),
+            value: Some("sk-test".to_string()),
+            kind: Some("api_key".to_string()),
+            description: Some("Primary OpenRouter key".to_string()),
+            metadata: Some("{\"provider\":\"openrouter\"}".to_string()),
+        })
+        .expect("body should build");
+
+        assert_eq!(
+            body,
+            json!({
+                "name": "openrouter_primary",
+                "value": "sk-test",
+                "kind": "api_key",
+                "description": "Primary OpenRouter key",
+                "metadata": {
+                    "provider": "openrouter"
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn user_secrets_create_body_prefers_inline_json() {
+        let body = user_secrets_create_body(UserSecretsCreateCommand {
+            body: Some("{\"name\":\"direct\",\"value\":\"secret\"}".to_string()),
+            name: Some("ignored".to_string()),
+            value: Some("ignored".to_string()),
+            kind: None,
+            description: None,
+            metadata: None,
+        })
+        .expect("body should parse");
+
+        assert_eq!(body, json!({"name": "direct", "value": "secret"}));
+    }
+
+    #[test]
+    fn user_secrets_update_body_builds_object_from_flags() {
+        let body = user_secrets_update_body(UserSecretsUpdateCommand {
+            name: "openrouter_primary".to_string(),
+            body: None,
+            value: Some("rotated".to_string()),
+            kind: Some("api_key".to_string()),
+            description: Some("Rotated key".to_string()),
+            metadata: Some("{\"provider\":\"openrouter\",\"rotation\":\"now\"}".to_string()),
+        })
+        .expect("body should build");
+
+        assert_eq!(
+            body,
+            json!({
+                "value": "rotated",
+                "kind": "api_key",
+                "description": "Rotated key",
+                "metadata": {
+                    "provider": "openrouter",
+                    "rotation": "now"
+                }
             })
         );
     }

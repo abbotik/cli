@@ -3,7 +3,7 @@ use clap::Parser;
 use crate::cli::{
     AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, ConfigSubcommand,
     DataSubcommand, DoctorCommand, KeysSubcommand, LlmFactorySubcommand, LlmRoomSubcommand,
-    LlmSubcommand, TuiCommand, UpdateCommand, UserMachineKeysSubcommand,
+    LlmSubcommand, TuiCommand, UpdateCommand, UserMachineKeysSubcommand, UserSecretsSubcommand,
 };
 
 #[test]
@@ -549,6 +549,95 @@ fn parses_user_machine_keys_commands() {
                 other => panic!("expected rotate command, got {other:?}"),
             },
             other => panic!("expected user machine-keys command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_user_secrets_commands() {
+    let create = Cli::try_parse_from([
+        "abbot",
+        "user",
+        "secrets",
+        "create",
+        "--name",
+        "openrouter_primary",
+        "--value",
+        "@~/.config/secrets/openrouter.key",
+        "--kind",
+        "api_key",
+        "--description",
+        "Primary OpenRouter key",
+        "--metadata",
+        "{\"provider\":\"openrouter\"}",
+    ])
+    .expect("user secrets create should parse");
+
+    match create.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::Secrets(command) => match command.command {
+                UserSecretsSubcommand::Create(args) => {
+                    assert_eq!(args.name.as_deref(), Some("openrouter_primary"));
+                    assert_eq!(
+                        args.value.as_deref(),
+                        Some("@~/.config/secrets/openrouter.key")
+                    );
+                    assert_eq!(args.kind.as_deref(), Some("api_key"));
+                    assert_eq!(args.description.as_deref(), Some("Primary OpenRouter key"));
+                    assert_eq!(
+                        args.metadata.as_deref(),
+                        Some("{\"provider\":\"openrouter\"}")
+                    );
+                }
+                other => panic!("expected user secrets create command, got {other:?}"),
+            },
+            other => panic!("expected user secrets command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
+    }
+
+    let update = Cli::try_parse_from([
+        "abbot",
+        "user",
+        "secrets",
+        "update",
+        "openrouter_primary",
+        "--value",
+        "-",
+        "--metadata",
+        "{\"provider\":\"openrouter\",\"rotation\":\"2026-04-23\"}",
+    ])
+    .expect("user secrets update should parse");
+
+    match update.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::Secrets(command) => match command.command {
+                UserSecretsSubcommand::Update(args) => {
+                    assert_eq!(args.name, "openrouter_primary");
+                    assert_eq!(args.value.as_deref(), Some("-"));
+                    assert_eq!(
+                        args.metadata.as_deref(),
+                        Some("{\"provider\":\"openrouter\",\"rotation\":\"2026-04-23\"}")
+                    );
+                }
+                other => panic!("expected user secrets update command, got {other:?}"),
+            },
+            other => panic!("expected user secrets command, got {other:?}"),
+        },
+        other => panic!("expected user command, got {other:?}"),
+    }
+
+    let delete = Cli::try_parse_from(["abbot", "user", "secrets", "delete", "openrouter_primary"])
+        .expect("user secrets delete should parse");
+
+    match delete.command {
+        Command::User(user) => match user.command {
+            crate::cli::UserSubcommand::Secrets(command) => match command.command {
+                UserSecretsSubcommand::Delete(args) => assert_eq!(args.name, "openrouter_primary"),
+                other => panic!("expected user secrets delete command, got {other:?}"),
+            },
+            other => panic!("expected user secrets command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }

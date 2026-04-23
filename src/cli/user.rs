@@ -20,6 +20,8 @@ pub enum UserSubcommand {
     Invite(UserInviteCommand),
     /// Manage tenant-bound machine public keys
     MachineKeys(UserMachineKeysCommand),
+    /// Manage encrypted user-scoped secrets
+    Secrets(UserSecretsCommand),
     /// Fetch one user by ID or `me`
     Get(UserIdArg),
     /// Update one user by ID or `me`
@@ -168,6 +170,82 @@ pub struct UserMachineKeysRotateCommand {
 #[derive(Args, Debug)]
 pub struct UserMachineKeyIdArg {
     pub key_id: String,
+}
+
+#[derive(Args, Debug)]
+pub struct UserSecretsCommand {
+    #[command(subcommand)]
+    pub command: UserSecretsSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UserSecretsSubcommand {
+    /// List your encrypted secrets without revealing plaintext values
+    List,
+    /// Create one encrypted secret
+    Create(UserSecretsCreateCommand),
+    /// Replace one encrypted secret by name
+    Update(UserSecretsUpdateCommand),
+    /// Delete one encrypted secret by name
+    Delete(UserSecretNameArg),
+}
+
+#[derive(Args, Debug)]
+pub struct UserSecretsCreateCommand {
+    /// JSON body from stdin or use --body to inline it
+    #[arg(long)]
+    pub body: Option<String>,
+
+    /// Secret name, unique for the authenticated user
+    #[arg(long)]
+    pub name: Option<String>,
+
+    /// Plaintext value, use - for stdin or @<path> for a file
+    #[arg(long)]
+    pub value: Option<String>,
+
+    /// Secret kind, such as api_key
+    #[arg(long)]
+    pub kind: Option<String>,
+
+    /// Human-readable description
+    #[arg(long)]
+    pub description: Option<String>,
+
+    /// JSON metadata object, use - for stdin or @<path> for a file
+    #[arg(long)]
+    pub metadata: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct UserSecretsUpdateCommand {
+    /// Existing secret name
+    pub name: String,
+
+    /// JSON body from stdin or use --body to inline it
+    #[arg(long)]
+    pub body: Option<String>,
+
+    /// Replacement plaintext value, use - for stdin or @<path> for a file
+    #[arg(long)]
+    pub value: Option<String>,
+
+    /// Replacement secret kind
+    #[arg(long)]
+    pub kind: Option<String>,
+
+    /// Replacement human-readable description
+    #[arg(long)]
+    pub description: Option<String>,
+
+    /// Replacement JSON metadata object, use - for stdin or @<path> for a file
+    #[arg(long)]
+    pub metadata: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct UserSecretNameArg {
+    pub name: String,
 }
 
 #[derive(Args, Debug)]
