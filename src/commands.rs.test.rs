@@ -2,9 +2,9 @@ use clap::Parser;
 
 use crate::cli::{
     AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, ConfigSubcommand,
-    DataSubcommand, DoctorCommand, FactorySubcommand, KeysSubcommand, LlmFactorySubcommand,
-    LlmRoomSubcommand, LlmSubcommand, TuiCommand, UpdateCommand, UserMachineKeysSubcommand,
-    UserSecretsSubcommand,
+    DataSubcommand, DoctorCommand, FactorySubcommand, FactoryWatchUntil, KeysSubcommand,
+    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, TuiCommand, UpdateCommand,
+    UserMachineKeysSubcommand, UserSecretsSubcommand,
 };
 
 #[test]
@@ -771,10 +771,10 @@ fn parses_llm_factory_commands() {
 
 #[test]
 fn parses_top_level_factory_commands() {
-    let create = Cli::try_parse_from([
+    let submit = Cli::try_parse_from([
         "abbot",
         "factory",
-        "create",
+        "submit",
         "--prompt",
         "ship it",
         "--workflow",
@@ -782,16 +782,26 @@ fn parses_top_level_factory_commands() {
         "--subject",
         "repo:abbotik/api",
     ])
-    .expect("factory create should parse");
+    .expect("factory submit should parse");
 
-    match create.command {
+    match submit.command {
         Command::Factory(command) => match command.command {
-            FactorySubcommand::Create(args) => {
+            FactorySubcommand::Submit(args) => {
                 assert_eq!(args.prompt.as_deref(), Some("ship it"));
                 assert_eq!(args.workflow.as_deref(), Some("software.delivery"));
                 assert_eq!(args.subject.as_deref(), Some("repo:abbotik/api"));
             }
-            other => panic!("expected factory create command, got {other:?}"),
+            other => panic!("expected factory submit command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
+    let create_alias = Cli::try_parse_from(["abbot", "factory", "create", "--prompt", "ship it"])
+        .expect("factory create alias should parse");
+    match create_alias.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Submit(args) => assert_eq!(args.prompt.as_deref(), Some("ship it")),
+            other => panic!("expected factory submit command from create alias, got {other:?}"),
         },
         other => panic!("expected factory command, got {other:?}"),
     }
@@ -806,11 +816,27 @@ fn parses_top_level_factory_commands() {
         other => panic!("expected factory command, got {other:?}"),
     }
 
-    let watch = Cli::try_parse_from(["abbot", "factory", "watch", "run_123"])
-        .expect("factory watch should parse");
+    let watch = Cli::try_parse_from([
+        "abbot",
+        "factory",
+        "watch",
+        "run_123",
+        "--interval",
+        "5",
+        "--timeout",
+        "30",
+        "--until",
+        "completed",
+    ])
+    .expect("factory watch should parse");
     match watch.command {
         Command::Factory(command) => match command.command {
-            FactorySubcommand::Watch(arg) => assert_eq!(arg.id, "run_123"),
+            FactorySubcommand::Watch(arg) => {
+                assert_eq!(arg.id, "run_123");
+                assert_eq!(arg.interval, 5);
+                assert_eq!(arg.timeout, Some(30));
+                assert_eq!(arg.until, Some(FactoryWatchUntil::Completed));
+            }
             other => panic!("expected factory watch command, got {other:?}"),
         },
         other => panic!("expected factory command, got {other:?}"),

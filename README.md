@@ -126,12 +126,11 @@ update.
 Use `abbot factory` for high-level durable workflow operations:
 
 ```bash
-abbot factory create --prompt "create me a marketing plan for an iPhone app"
-abbot factory create --plan ./plan.md --workflow software.delivery --subject repo:abbotik/api
-abbot factory start <run_id>
+abbot factory submit --prompt "create me a marketing plan for an iPhone app"
+abbot factory submit --plan ./plan.md --workflow software.delivery --subject repo:abbotik/api
 abbot factory status <run_id>
 abbot factory watch <run_id>
-abbot factory artifacts <run_id>
+abbot factory watch <run_id> --timeout 1800 --until completed
 abbot factory review <run_id>
 ```
 
