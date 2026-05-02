@@ -3,11 +3,14 @@
 `abbot` is the Rust operator CLI for Abbotik.
 By default it talks to the public API at `https://api.abbotik.com`.
 
-The CLI stores its default config at `~/.config/abbot/cli/config.toml`. Pass `--config <name>` to use an isolated profile at `~/.config/abbot/cli/configs/<name>.toml` instead. `abbot config list` reports both the default profile and named profiles so local state is visible in one place.
+The CLI stores credentials per API host under `~/.config/abbot/cli/hosts/`.
+`abbot auth login [host]` logs in to one server and makes that server the
+default for later commands. Omit `[host]` to use `https://api.abbotik.com`.
 
 Core human-first commands:
 
-- `abbot config` to manage named config profiles and inspect local config state
+- `abbot auth login [host]` to authenticate to a public, local, or internal API host
+- `abbot auth list` and `abbot auth use <host>` to inspect and switch saved hosts
 - `abbot doctor` to check the live server connection, health, and auth state
 - `abbot update` to refresh the current CLI binary using the install method it detects
 - `abbot guide <path...>` to print the embedded markdown doc for a command path
@@ -80,14 +83,24 @@ acls aggregate bulk cron data describe find keys stat tracked trashed user
 For a new user, the intended first steps are:
 
 ```bash
-abbot --config staging auth login --tenant acme --username alice --password secret
-abbot --config staging api data list rooms
-abbot --config staging tui
+abbot auth login --tenant acme --username alice --password secret
+abbot api data list rooms
+abbot tui
 ```
 
-Each named config keeps its own saved token, base URL overrides, output format, and machine-auth metadata.
+For multiple API servers, log in to each host once:
 
-For scripting, `ABBOTIK_CONFIG=<name>` selects the same profile as `--config <name>`, and the CLI flag wins when both are present.
+```bash
+abbot auth login http://localhost:3000 --tenant acme --username alice --password secret
+abbot auth login http://192.168.1.50:3000 --tenant acme --username alice --password secret
+abbot auth list
+abbot auth use http://localhost:3000
+abbot --host http://192.168.1.50:3000 api data list rooms
+```
+
+Each host keeps its own saved token, output format, and machine-auth metadata.
+The older `--config <name>` profile path remains available for scripting and
+debugging, but host credentials are the normal user surface.
 
 For a new user, the intended first steps are:
 

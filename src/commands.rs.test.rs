@@ -17,6 +17,71 @@ fn parses_global_config_flag() {
 }
 
 #[test]
+fn parses_global_host_flag() {
+    let cli = Cli::try_parse_from(["abbot", "--host", "localhost:3000", "doctor"])
+        .expect("global host flag should parse");
+
+    assert_eq!(cli.globals.host.as_deref(), Some("localhost:3000"));
+    assert!(matches!(cli.command, Command::Doctor(_)));
+}
+
+#[test]
+fn parses_auth_host_commands() {
+    let login = Cli::try_parse_from([
+        "abbot",
+        "auth",
+        "login",
+        "localhost:3000",
+        "--tenant",
+        "acme",
+        "--username",
+        "alice",
+    ])
+    .expect("auth login host should parse");
+    match login.command {
+        Command::Auth(auth) => match auth.command {
+            AuthSubcommand::Login(args) => {
+                assert_eq!(args.host.as_deref(), Some("localhost:3000"));
+                assert_eq!(args.tenant.as_deref(), Some("acme"));
+                assert_eq!(args.username.as_deref(), Some("alice"));
+            }
+            other => panic!("expected auth login command, got {other:?}"),
+        },
+        other => panic!("expected auth command, got {other:?}"),
+    }
+
+    let use_host = Cli::try_parse_from(["abbot", "auth", "use", "http://localhost:3000"])
+        .expect("auth use should parse");
+    match use_host.command {
+        Command::Auth(auth) => match auth.command {
+            AuthSubcommand::Use(args) => assert_eq!(args.host, "http://localhost:3000"),
+            other => panic!("expected auth use command, got {other:?}"),
+        },
+        other => panic!("expected auth command, got {other:?}"),
+    }
+
+    let list = Cli::try_parse_from(["abbot", "auth", "list"]).expect("auth list should parse");
+    assert!(matches!(
+        list.command,
+        Command::Auth(crate::cli::AuthCommand {
+            command: AuthSubcommand::List(_)
+        })
+    ));
+
+    let logout = Cli::try_parse_from(["abbot", "auth", "logout", "localhost:3000"])
+        .expect("auth logout should parse");
+    match logout.command {
+        Command::Auth(auth) => match auth.command {
+            AuthSubcommand::Logout(args) => {
+                assert_eq!(args.host.as_deref(), Some("localhost:3000"))
+            }
+            other => panic!("expected auth logout command, got {other:?}"),
+        },
+        other => panic!("expected auth command, got {other:?}"),
+    }
+}
+
+#[test]
 fn parses_auth_token_get_set_clear() {
     let get = Cli::try_parse_from(["abbot", "auth", "token", "get"]).expect("get should parse");
     assert_auth_token_subcommand(get, AuthTokenSubcommand::Get);

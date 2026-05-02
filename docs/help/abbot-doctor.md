@@ -1,6 +1,6 @@
 # Doctor
 
-Run a human-oriented live sanity check for the active profile and server.
+Run a human-oriented live sanity check for the active host and server.
 
 This command:
 

@@ -68,8 +68,12 @@ pub struct GlobalOptions {
     #[arg(long)]
     pub config: Option<String>,
 
+    /// Use credentials for this Abbot API host
+    #[arg(long)]
+    pub host: Option<String>,
+
     /// Override the Abbotik API base URL
-    #[arg(long = "base-url")]
+    #[arg(long = "base-url", hide = true)]
     pub base_url: Option<String>,
 
     /// Override the stored bearer token
@@ -85,13 +89,13 @@ pub struct GlobalOptions {
 pub enum Command {
     /// Route-shaped access to /api/<name> families
     Api(ApiCommand),
-    /// Authentication and tenant bootstrap
+    /// Authentication, host selection, and tenant bootstrap
     Auth(AuthCommand),
     /// Show the active CLI config summary
     Config(ConfigCommand),
     /// API documentation helpers
     Docs(DocsCommand),
-    /// Explain auth and config state for the active profile
+    /// Explain auth and config state for the active host
     Doctor(DoctorCommand),
     /// High-level durable factory workflow operations
     Factory(FactoryCommand),

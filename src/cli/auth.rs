@@ -10,6 +10,12 @@ pub struct AuthCommand {
 pub enum AuthSubcommand {
     /// Log in to an existing tenant
     Login(AuthLoginCommand),
+    /// Make a logged-in host the default
+    Use(AuthUseCommand),
+    /// List locally known auth hosts
+    List(AuthListCommand),
+    /// Remove the saved token for a host
+    Logout(AuthLogoutCommand),
     /// Register a new tenant
     Register(AuthRegisterCommand),
     /// Refresh a token
@@ -35,6 +41,9 @@ pub struct AuthTenantsCommand {}
 
 #[derive(Args, Debug)]
 pub struct AuthLoginCommand {
+    /// Abbot API host; defaults to https://api.abbotik.com
+    pub host: Option<String>,
+
     /// Tenant name to authenticate against
     #[arg(long)]
     pub tenant: Option<String>,
@@ -54,6 +63,21 @@ pub struct AuthLoginCommand {
     /// Override the requested response format
     #[arg(long)]
     pub format: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct AuthUseCommand {
+    /// Abbot API host to make the default
+    pub host: String,
+}
+
+#[derive(Args, Debug, Default)]
+pub struct AuthListCommand {}
+
+#[derive(Args, Debug)]
+pub struct AuthLogoutCommand {
+    /// Abbot API host; defaults to the active host
+    pub host: Option<String>,
 }
 
 #[derive(Args, Debug)]

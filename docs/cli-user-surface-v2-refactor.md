@@ -56,8 +56,8 @@ longer registers `/app/*` or `/api/app/*`. Treat it as stale.
 
 Keep these root commands:
 
-- `auth` for login, registration, machine auth, token, tenant, and dissolve flows.
-- `config` for local profile state.
+- `auth` for host login, host switching, registration, machine auth, token, tenant, and dissolve flows.
+- `config` for legacy/profile-level local config state.
 - `doctor` for local and remote readiness checks.
 - `factory` for high-level durable Factory workflows.
 - `tui` for the terminal operator console.

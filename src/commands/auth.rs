@@ -223,6 +223,7 @@ pub(super) async fn run(
     config: &mut AbbotikConfig,
     client: &ApiClient,
     save_path: Option<&Path>,
+    selected_host: Option<&str>,
 ) -> anyhow::Result<()> {
     match command.command {
         crate::cli::AuthSubcommand::Login(args) => {
@@ -244,8 +245,72 @@ pub(super) async fn run(
             if !token.is_empty() {
                 config.set_token(token.clone());
                 save_config(config, save_path)?;
+                if let Some(host) = selected_host {
+                    AbbotikConfig::save_current_host(host)?;
+                }
             }
             print_json(&response)?;
+        }
+        crate::cli::AuthSubcommand::Use(args) => {
+            let host = AbbotikConfig::normalize_host(&args.host)?;
+            let path = AbbotikConfig::host_config_path(&host)?;
+            if !path.exists() {
+                anyhow::bail!("no saved credentials for `{host}`; run `abbot auth login {host}`");
+            }
+            AbbotikConfig::save_current_host(&host)?;
+            print_json(&json!({
+                "ok": true,
+                "host": host,
+                "current_host_path": AbbotikConfig::current_host_path()?.display().to_string(),
+                "config_path": path.display().to_string(),
+            }))?;
+        }
+        crate::cli::AuthSubcommand::List(_) => {
+            let current_host =
+                AbbotikConfig::load_current_host()?.unwrap_or_else(AbbotikConfig::default_host);
+            let hosts = AbbotikConfig::list_hosts()?
+                .into_iter()
+                .map(|entry| {
+                    let active = current_host == entry.host;
+                    json!({
+                        "host": entry.host,
+                        "active": active,
+                        "config_path": entry.path.display().to_string(),
+                        "token": super::config_cmd::token_summary(entry.config.token()),
+                        "machine_auth": {
+                            "present": entry.config.machine_auth.is_some(),
+                            "tenant": entry.config.machine_auth.as_ref().and_then(|value| value.tenant.clone()),
+                            "key_id": entry.config.machine_auth.as_ref().and_then(|value| value.key_id.clone()),
+                            "key_fingerprint": entry.config.machine_auth.as_ref().and_then(|value| value.key_fingerprint.clone()),
+                        },
+                    })
+                })
+                .collect::<Vec<_>>();
+            print_json(&json!({
+                "current_host": current_host,
+                "hosts": hosts,
+            }))?;
+        }
+        crate::cli::AuthSubcommand::Logout(args) => {
+            let host = match args.host.as_deref() {
+                Some(host) => AbbotikConfig::normalize_host(host)?,
+                None => selected_host
+                    .map(AbbotikConfig::normalize_host)
+                    .transpose()?
+                    .unwrap_or_else(AbbotikConfig::default_host),
+            };
+            let path = AbbotikConfig::host_config_path(&host)?;
+            if !path.exists() {
+                anyhow::bail!("no saved credentials for `{host}`");
+            }
+            config.clear_token();
+            config.machine_auth = None;
+            save_config(config, save_path)?;
+            print_json(&json!({
+                "ok": true,
+                "host": host,
+                "config_path": path.display().to_string(),
+            }))?;
         }
         crate::cli::AuthSubcommand::Register(args) => {
             let password = read_secret_source_option(args.password.as_deref())?;
@@ -283,6 +348,9 @@ pub(super) async fn run(
             if let Some(token) = login_response.data.as_ref().map(|data| data.token.clone()) {
                 config.set_token(token);
                 save_config(config, save_path)?;
+                if let Some(host) = selected_host {
+                    AbbotikConfig::save_current_host(host)?;
+                }
             }
             print_json(&json!({
                 "success": register_response.success && login_response.success,

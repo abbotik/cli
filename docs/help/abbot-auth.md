@@ -1,8 +1,12 @@
 # Auth
 
-Authenticate, register, bootstrap machine keys, and inspect tenant state.
+Authenticate to API hosts, switch saved hosts, register tenants, bootstrap
+machine keys, and inspect tenant state.
 
 This branch covers both the explicit bootstrap flows and the normal login path.
+Credentials are stored per API host. `abbot auth login [host]` uses
+`https://api.abbotik.com` when `[host]` is omitted, and a successful login makes
+that host the default for later commands.
 
 If you are an agent or long-running client, start with machine auth or bearer
 API keys, not the username/password path:
@@ -27,6 +31,10 @@ Common uses:
 - `abbot docs path /docs/auth`
 - `abbot auth machine connect --tenant acme --username machine_root --key @~/.config/secrets/machine.key`
 - `abbot auth register --tenant acme --username alice --email alice@example.com --password @auth-password.txt`
+- `abbot auth login http://localhost:3000 --tenant acme --username alice --password @auth-password.txt`
+- `abbot auth list`
+- `abbot auth use http://localhost:3000`
+- `abbot auth logout http://localhost:3000`
 - `abbot api user invite --username alice --invite-type human`
 - `abbot auth register --tenant acme --username alice --invite-code <code> --email alice@example.com --password @auth-password.txt`
 - `abbot auth provision --tenant acme --username machine_root --public-key @machine.pub`
@@ -41,5 +49,6 @@ Common uses:
 - `abbot auth token clear`
 - `abbot auth tenants`
 
-Use `--help` on `login`, `register`, `machine`, `provision`, `challenge`,
-`verify`, `refresh`, `dissolve`, `token`, or `tenants` for the next level down.
+Use `--help` on `login`, `use`, `list`, `logout`, `register`, `machine`,
+`provision`, `challenge`, `verify`, `refresh`, `dissolve`, `token`, or
+`tenants` for the next level down.

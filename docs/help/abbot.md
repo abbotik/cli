@@ -8,9 +8,9 @@ surfaces, and route-shaped API access.
 
 Top-level commands:
 
-- `auth` for login, registration, machine auth, token, tenant, and dissolve flows
-- `config` for local profile management
-- `doctor` for active-profile diagnostics and connection checks
+- `auth` for host login, host switching, registration, machine auth, token, tenant, and dissolve flows
+- `config` for legacy/profile-level local config management
+- `doctor` for active-host diagnostics and connection checks
 - `factory` for high-level durable Factory workflows
 - `tui` for the terminal operator console
 - `update` for CLI self-update
@@ -34,6 +34,16 @@ For first-time human bootstrap, use:
 2. `abbot auth login --tenant <tenant> --username <user> --password <password>` on later runs or other machines
 3. `abbot doctor`
 4. `abbot tui` or `abbot factory submit --prompt "..."`
+
+To work with multiple API servers, log in per host:
+
+```bash
+abbot auth login http://localhost:3000 --tenant acme --username alice --password secret-pass
+abbot auth login http://192.168.1.50:3000 --tenant acme --username alice --password secret-pass
+abbot auth list
+abbot auth use http://localhost:3000
+abbot --host http://192.168.1.50:3000 api data list rooms
+```
 
 For existing tenants, the invite path is:
 

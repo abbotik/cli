@@ -7,6 +7,7 @@ pub(super) async fn run(
     client: &ApiClient,
     config: &AbbotikConfig,
     selected_profile: Option<&str>,
+    selected_host: Option<&str>,
     save_path: Option<&Path>,
 ) -> anyhow::Result<()> {
     let token = config.token();
@@ -32,7 +33,8 @@ pub(super) async fn run(
 
     let report = json!({
         "ok": ok,
-        "profile": selected_profile.unwrap_or("default"),
+        "profile": selected_profile,
+        "host": selected_host.unwrap_or(config.base_url.as_str()),
         "config_path": save_path.map(|path| path.display().to_string()),
         "base_url": client.base_url().to_string(),
         "token": token_summary,
@@ -210,7 +212,7 @@ fn diagnosis_for(
     }
 
     if config.token().is_none() {
-        return "No saved bearer token exists for the active profile.".to_string();
+        return "No saved bearer token exists for the active host.".to_string();
     }
 
     match introspect {
@@ -248,7 +250,7 @@ fn next_steps_for(
 ) -> Vec<String> {
     if let HealthProbe::Err { .. } = health {
         return vec![
-            "Run `abbot config` to confirm the active base URL and selected profile.".to_string(),
+            "Run `abbot auth list` to confirm the active host.".to_string(),
             "Run `abbot doctor` to retry the live server check directly.".to_string(),
             "Fix the server URL or network path before debugging auth state further.".to_string(),
         ];
@@ -256,9 +258,9 @@ fn next_steps_for(
 
     if config.token().is_none() {
         return vec![
-            "Run `abbot config` to confirm the active base URL and config file.".to_string(),
+            "Run `abbot auth list` to confirm the active host.".to_string(),
             "Set or obtain a bearer token for this host, then save it with `abbot auth token set <jwt>`.".to_string(),
-            "If this host still supports local username auth, use `abbot auth login --tenant <tenant> --username <user> --password <password>`.".to_string(),
+            "If this host still supports local username auth, use `abbot auth login [host] --tenant <tenant> --username <user> --password <password>`.".to_string(),
         ];
     }
 
@@ -274,7 +276,7 @@ fn next_steps_for(
         }
         (IntrospectProbe::Ok(_), _) => vec![
             "You are authenticated right now. Try `abbot tui` or `abbot api user introspect`.".to_string(),
-            "Run `abbot config` whenever you need the active config path and base URL.".to_string(),
+            "Run `abbot auth list` whenever you need the active host and saved auth summary.".to_string(),
         ],
         (_, RefreshProbe::Available) => vec![
             "Run `abbot auth refresh` to renew the saved token and update local config.".to_string(),
@@ -283,14 +285,14 @@ fn next_steps_for(
         (_, RefreshProbe::Blocked { error }) if error.contains("Local auth is disabled") => vec![
             "This host disables local username refresh, so `abbot auth refresh` will not fix the session.".to_string(),
             "Use the host's Auth0/OIDC path to obtain a fresh human token, then save it with `abbot auth token set <jwt>`.".to_string(),
-            "Run `abbot config` first if you need to confirm which host and profile you are targeting.".to_string(),
+            "Run `abbot auth list` first if you need to confirm which host you are targeting.".to_string(),
         ],
         (_, RefreshProbe::Impossible { reason }) => vec![
             format!("Machine-style refresh is blocked locally: {reason}"),
             "Repair the saved machine-auth config or reconnect with `abbot auth machine connect ...`.".to_string(),
         ],
         _ => vec![
-            "Run `abbot config` to inspect the active profile and host.".to_string(),
+            "Run `abbot auth list` to inspect the active host.".to_string(),
             "If you have a valid bearer token already, save it with `abbot auth token set <jwt>`.".to_string(),
         ],
     }
@@ -301,7 +303,8 @@ fn render_human_report(report: &Value) -> String {
     let status = if ok { "OK" } else { "ATTENTION" };
     let config_path = string_or(report.get("config_path"), "unknown");
     let base_url = string_or(report.get("base_url"), "unknown");
-    let profile = string_or(report.get("profile"), "default");
+    let host = string_or(report.get("host"), base_url.as_str());
+    let profile = report.get("profile").and_then(Value::as_str);
     let token = report.get("token").unwrap_or(&Value::Null);
     let health = report.get("health").unwrap_or(&Value::Null);
     let introspect = report.get("introspect").unwrap_or(&Value::Null);
@@ -402,7 +405,7 @@ fn render_human_report(report: &Value) -> String {
         format!("Doctor: {status}"),
         String::new(),
         "Config".to_string(),
-        format!("  profile: {profile}"),
+        format!("  host: {host}"),
         format!("  path: {config_path}"),
         format!("  base URL: {base_url}"),
         String::new(),
@@ -422,6 +425,9 @@ fn render_human_report(report: &Value) -> String {
         "Diagnosis".to_string(),
         format!("  {diagnosis}"),
     ];
+    if let Some(profile) = profile {
+        lines.insert(4, format!("  profile: {profile}"));
+    }
 
     if !next_steps.is_empty() {
         lines.push(String::new());
@@ -476,7 +482,7 @@ mod tests {
         );
         assert_eq!(
             diagnosis,
-            "No saved bearer token exists for the active profile."
+            "No saved bearer token exists for the active host."
         );
     }
 
@@ -504,6 +510,7 @@ mod tests {
         let output = render_human_report(&json!({
             "ok": true,
             "profile": "default",
+            "host": "https://integration.abbotik.com",
             "config_path": "/tmp/config.toml",
             "base_url": "https://integration.abbotik.com/",
             "token": {

@@ -2,6 +2,16 @@
 
 Manage named CLI config profiles and inspect local config state.
 
+Most users should prefer the host auth surface:
+
+- `abbot auth login [host]`
+- `abbot auth list`
+- `abbot auth use <host>`
+- `abbot --host <host> ...`
+
+Named config profiles remain available for scripting, debugging, and unusual
+isolated config needs.
+
 Common commands:
 
 - `abbot config create <name> [url]`
