@@ -13,7 +13,7 @@ Useful entry points from the API docs surface:
 - `/docs/api/find`, `/docs/api/aggregate`, and `/docs/api/bulk` for query and batch work
 - `/docs/llm/room` and `/docs/llm/factory` for the `/llm/*` protocol contract
 - `/docs/api/tracked` and `/docs/api/trashed` for change tracking and lifecycle flows
-- `/docs/api/cron` and `/docs/fs` for scheduled jobs and filesystem access
+- `/docs/api/cron` for scheduled jobs
 
 Common uses:
 

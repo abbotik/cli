@@ -249,7 +249,7 @@ fn next_steps_for(
     if let HealthProbe::Err { .. } = health {
         return vec![
             "Run `abbot config` to confirm the active base URL and selected profile.".to_string(),
-            "Run `abbot health` to retry the live server check directly.".to_string(),
+            "Run `abbot doctor` to retry the live server check directly.".to_string(),
             "Fix the server URL or network path before debugging auth state further.".to_string(),
         ];
     }
@@ -273,7 +273,7 @@ fn next_steps_for(
             ]
         }
         (IntrospectProbe::Ok(_), _) => vec![
-            "You are authenticated right now. Try `abbot tui` or `abbot user introspect`.".to_string(),
+            "You are authenticated right now. Try `abbot tui` or `abbot api user introspect`.".to_string(),
             "Run `abbot config` whenever you need the active config path and base URL.".to_string(),
         ],
         (_, RefreshProbe::Available) => vec![

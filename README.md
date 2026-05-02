@@ -1,16 +1,18 @@
 # abbot
 
-`abbot` is the Rust CLI for the Abbotik API.
+`abbot` is the Rust operator CLI for Abbotik.
 By default it talks to the public API at `https://api.abbotik.com`.
 
 The CLI stores its default config at `~/.config/abbot/cli/config.toml`. Pass `--config <name>` to use an isolated profile at `~/.config/abbot/cli/configs/<name>.toml` instead. `abbot config list` reports both the default profile and named profiles so local state is visible in one place.
 
-Two human-first inspection commands now exist:
+Core human-first commands:
 
 - `abbot config` to manage named config profiles and inspect local config state
 - `abbot doctor` to check the live server connection, health, and auth state
 - `abbot update` to refresh the current CLI binary using the install method it detects
-- `abbot command <path...>` to print the embedded markdown doc for a command path
+- `abbot guide <path...>` to print the embedded markdown doc for a command path
+- `abbot api <name>` for route-shaped `/api/<name>` families
+- `abbot mcp list` and `abbot mcp call` for MCP tool workflows
 
 ## Release and install
 
@@ -34,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/abbotik/cli/main/scripts/install.sh
 To pin a version:
 
 ```bash
-ABBOTIK_CLI_VERSION=v1.10.0 \
+ABBOTIK_CLI_VERSION=v2.0.0 \
   curl -fsSL https://raw.githubusercontent.com/abbotik/cli/main/scripts/install.sh | bash
 ```
 
@@ -66,13 +68,20 @@ tap formula tracks the current release.
 
 ## Current state
 
-The CLI now has a shared API helper layer plus command-family dispatch wired up to Abbotik routes. The `data` family is aligned to Abbotik's model, record, relationship, and nested-child route shapes, with query flags threaded through the request helpers.
+The v2 CLI has a clean top-level surface. Product workflows stay at the root,
+while route-shaped API families live under `abbot api`.
+
+Registered `/api/<name>` families:
+
+```text
+acls aggregate bulk cron data describe find keys stat tracked trashed user
+```
 
 For a new user, the intended first steps are:
 
 ```bash
 abbot --config staging auth login --tenant acme --username alice --password secret
-abbot --config staging data list rooms
+abbot --config staging api data list rooms
 abbot --config staging tui
 ```
 
@@ -84,15 +93,15 @@ For a new user, the intended first steps are:
 
 1. `abbot auth register --tenant <tenant> --username <user> --email <email> --password <password>`
 2. `abbot auth login --tenant <tenant> --username <user> --password <password>` if you need a fresh session later
-3. `abbot public llms` or `abbot docs root`
-4. `abbot health`
+3. `abbot docs path /llms.txt` or `abbot docs root`
+4. `abbot doctor`
 
 `abbot auth register` now follows the API contract change by registering first and
 then immediately completing `/auth/login` so the CLI still lands with a saved JWT.
 
 For users joining an existing tenant, the invite flow is:
 
-1. Existing root or full user runs `abbot user invite --username <user> --invite-type human|machine`
+1. Existing root or full user runs `abbot api user invite --username <user> --invite-type human|machine`
 2. Human invitees run `abbot auth register --tenant <tenant> --username <user> --invite-code <code> --email <email> --password <password>`
 3. Machine invitees run `abbot auth provision --tenant <tenant> --username <user> --invite-code <code> --public-key @~/.config/abbot/abbotik.pub`
 4. Invited humans can later use `abbot auth login`; invited machines finish with `abbot auth verify` or `abbot auth machine connect`
@@ -101,25 +110,43 @@ Machine clients should use:
 
 1. `abbot auth machine connect --tenant <tenant> --username <user> --key ~/.config/abbot/abbotik.key`
 2. `abbot auth refresh` when the saved machine token expires; `abbot` auto-detects public-key auth and runs challenge→sign→verify using the saved key path
-3. `abbot user machine-keys list`
+3. `abbot api user machine-keys list`
 
 User-scoped provider secrets should use:
 
 ```bash
-abbot user secrets create \
+abbot api user secrets create \
   --name openrouter_primary \
   --value @~/.config/secrets/openrouter.key \
   --kind api_key \
   --metadata '{"provider":"openrouter"}'
 
-abbot user secrets list
-abbot user secrets update openrouter_primary --value @~/.config/secrets/openrouter.key
-abbot user secrets delete openrouter_primary
+abbot api user secrets list
+abbot api user secrets update openrouter_primary --value @~/.config/secrets/openrouter.key
+abbot api user secrets delete openrouter_primary
 ```
 
 The API encrypts secret values at rest and CLI list/delete responses only show
 metadata returned by `/api/user/secrets`; plaintext is sent only on create or
 update.
+
+## API and MCP
+
+Use `abbot api` for exact `/api/<name>` route families:
+
+```bash
+abbot api describe list
+abbot api data list users
+abbot api keys create --name ci-runner
+abbot api user introspect
+```
+
+Use `abbot mcp` for MCP concepts:
+
+```bash
+abbot mcp list
+abbot mcp call abbot_data --arguments '{"action":"list","model":"rooms"}'
+```
 
 ## Factory
 
@@ -142,7 +169,7 @@ debugging and manual state authoring.
 `abbot tui` opens a terminal operator console over the real Abbotik room and
 factory APIs.
 
-Current v1 behavior:
+Current v2 behavior:
 
 - reuses the saved CLI base URL and bearer token
 - shows grouped room and factory rails

@@ -475,6 +475,79 @@ impl ApiClient {
         self.parse_response(method, url, response).await
     }
 
+    pub async fn request_json_with_headers<B, T>(
+        &self,
+        method: Method,
+        path: &str,
+        headers: Option<&[(String, String)]>,
+        body: Option<&B>,
+    ) -> Result<T, AbbotikError>
+    where
+        B: Serialize + ?Sized,
+        T: DeserializeOwned,
+    {
+        let url = self.endpoint(path)?;
+        let mut request = self.request_builder(method.clone(), url.clone())?;
+        if let Some(headers) = headers {
+            for (name, value) in headers {
+                request = request.header(name, value);
+            }
+        }
+        let request = if let Some(body) = body {
+            request.json(body)
+        } else {
+            request
+        };
+
+        let response = request
+            .send()
+            .await
+            .map_err(|source| AbbotikError::Request {
+                method: method.clone(),
+                url: url.to_string(),
+                source,
+            })?;
+
+        self.parse_response(method, url, response).await
+    }
+
+    pub async fn request_json_with_headers_and_response_headers<B, T>(
+        &self,
+        method: Method,
+        path: &str,
+        headers: Option<&[(String, String)]>,
+        body: Option<&B>,
+    ) -> Result<(T, header::HeaderMap), AbbotikError>
+    where
+        B: Serialize + ?Sized,
+        T: DeserializeOwned,
+    {
+        let url = self.endpoint(path)?;
+        let mut request = self.request_builder(method.clone(), url.clone())?;
+        if let Some(headers) = headers {
+            for (name, value) in headers {
+                request = request.header(name, value);
+            }
+        }
+        let request = if let Some(body) = body {
+            request.json(body)
+        } else {
+            request
+        };
+
+        let response = request
+            .send()
+            .await
+            .map_err(|source| AbbotikError::Request {
+                method: method.clone(),
+                url: url.to_string(),
+                source,
+            })?;
+        let headers = response.headers().clone();
+        let body = self.parse_response(method, url, response).await?;
+        Ok((body, headers))
+    }
+
     pub async fn request_json_with_query_without_auth<B, Q, T>(
         &self,
         method: Method,

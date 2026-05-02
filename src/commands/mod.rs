@@ -25,7 +25,7 @@ pub(super) use crate::{
 
 mod acls;
 mod aggregate;
-mod app;
+mod api_cmd;
 mod auth;
 mod auth_support;
 mod bulk;
@@ -38,11 +38,10 @@ mod docs;
 mod doctor;
 mod factory;
 mod find;
-mod fs;
 mod io;
 mod keys;
 mod llm;
-mod public;
+mod mcp;
 mod shared;
 mod stat;
 mod tracked;
@@ -53,7 +52,7 @@ mod user;
 
 use self::io::{
     read_json_body_or_default, read_json_source, read_json_source_or_default, read_secret_source,
-    read_secret_source_option, read_stdin_or_empty,
+    read_secret_source_option,
 };
 use self::shared::vec_or_none;
 
@@ -75,12 +74,10 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
     let client = ApiClient::new(config.clone())?;
 
     match cli.command {
-        Command::Public(command) => public::run(command, &client).await?,
+        Command::Api(command) => api_cmd::run(command, &client).await?,
         Command::Auth(command) => {
             auth::run(command, &mut config, &client, save_path.as_deref()).await?
         }
-        Command::Health => print_json(&client.health().await?)?,
-        Command::Command(command) => command::run(command).await?,
         Command::Config(command) => config_cmd::run(
             command,
             &config,
@@ -98,22 +95,10 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
             .await?
         }
         Command::Docs(command) => docs::run(command, &client).await?,
-        Command::Describe(command) => describe::run(command, &client).await?,
-        Command::Data(command) => data::run(command, &client).await?,
-        Command::Find(command) => find::run(command, &client).await?,
-        Command::Aggregate(command) => aggregate::run(command, &client).await?,
-        Command::Bulk(command) => bulk::run(command, &client).await?,
-        Command::Acls(command) => acls::run(command, &client).await?,
-        Command::Stat(command) => stat::run(command, &client).await?,
-        Command::Tracked(command) => tracked::run(command, &client).await?,
-        Command::Trashed(command) => trashed::run(command, &client).await?,
-        Command::User(command) => user::run(command, &client).await?,
-        Command::Keys(command) => keys::run(command, &client).await?,
+        Command::Guide(command) => command::run(command).await?,
         Command::Llm(command) => llm::run(command, &client).await?,
-        Command::Cron(command) => cron::run(command, &client).await?,
-        Command::Fs(command) => fs::run(command, &client).await?,
+        Command::Mcp(command) => mcp::run(command, &client).await?,
         Command::Factory(command) => factory::run(command, &client).await?,
-        Command::App(command) => app::run(command, &client).await?,
         Command::Tui(command) => tui::run(command, &client).await?,
         Command::Update(command) => update::run(command).await?,
     }

@@ -1,19 +1,19 @@
 use clap::Parser;
 
 use crate::cli::{
-    AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, ConfigSubcommand,
-    DataSubcommand, DoctorCommand, FactorySubcommand, FactoryWatchUntil, KeysSubcommand,
-    LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, TuiCommand, UpdateCommand,
-    UserMachineKeysSubcommand, UserSecretsSubcommand,
+    ApiSubcommand, AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand,
+    ConfigSubcommand, DataSubcommand, DoctorCommand, FactorySubcommand, FactoryWatchUntil,
+    KeysSubcommand, LlmFactorySubcommand, LlmRoomSubcommand, LlmSubcommand, McpSubcommand,
+    TuiCommand, UpdateCommand, UserMachineKeysSubcommand, UserSecretsSubcommand,
 };
 
 #[test]
 fn parses_global_config_flag() {
-    let cli = Cli::try_parse_from(["abbot", "--config", "staging", "health"])
+    let cli = Cli::try_parse_from(["abbot", "--config", "staging", "doctor"])
         .expect("global config flag should parse");
 
     assert_eq!(cli.globals.config.as_deref(), Some("staging"));
-    assert!(matches!(cli.command, Command::Health));
+    assert!(matches!(cli.command, Command::Doctor(_)));
 }
 
 #[test]
@@ -195,6 +195,7 @@ fn parses_invited_human_and_user_invite_commands() {
 
     let invite = Cli::try_parse_from([
         "abbot",
+        "api",
         "user",
         "invite",
         "--username",
@@ -213,24 +214,27 @@ fn parses_invited_human_and_user_invite_commands() {
     .expect("user invite should parse");
 
     match invite.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::Invite(args) => {
-                assert_eq!(args.username.as_deref(), Some("builder_2"));
-                assert_eq!(args.invite_type.as_deref(), Some("machine"));
-                assert_eq!(args.access.as_deref(), Some("edit"));
-                assert_eq!(
-                    args.access_read,
-                    vec!["rooms".to_string(), "jobs".to_string()]
-                );
-                assert_eq!(args.expires_in, Some(3600));
-            }
-            other => panic!("expected user invite command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::User(user) => match user.command {
+                crate::cli::UserSubcommand::Invite(args) => {
+                    assert_eq!(args.username.as_deref(), Some("builder_2"));
+                    assert_eq!(args.invite_type.as_deref(), Some("machine"));
+                    assert_eq!(args.access.as_deref(), Some("edit"));
+                    assert_eq!(
+                        args.access_read,
+                        vec!["rooms".to_string(), "jobs".to_string()]
+                    );
+                    assert_eq!(args.expires_in, Some(3600));
+                }
+                other => panic!("expected user invite command, got {other:?}"),
+            },
+            other => panic!("expected api user command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }
 
     let invalid_user_create = Cli::try_parse_from([
-        "abbot", "user", "create", "--name", "anon", "--auth", "anon", "--access", "user",
+        "abbot", "api", "user", "create", "--name", "anon", "--auth", "anon", "--access", "user",
     ]);
     assert!(
         invalid_user_create.is_err(),
@@ -240,17 +244,20 @@ fn parses_invited_human_and_user_invite_commands() {
 
 #[test]
 fn parses_data_list_with_limit() {
-    let cli = Cli::try_parse_from(["abbot", "data", "--limit", "5", "list", "rooms"])
+    let cli = Cli::try_parse_from(["abbot", "api", "data", "--limit", "5", "list", "rooms"])
         .expect("data list with limit should parse");
 
     match cli.command {
-        Command::Data(data) => {
-            assert_eq!(data.options.limit, Some(5));
-            match data.command {
-                DataSubcommand::List(arg) => assert_eq!(arg.model, "rooms"),
-                other => panic!("expected data list command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::Data(data) => {
+                assert_eq!(data.options.limit, Some(5));
+                match data.command {
+                    DataSubcommand::List(arg) => assert_eq!(arg.model, "rooms"),
+                    other => panic!("expected data list command, got {other:?}"),
+                }
             }
-        }
+            other => panic!("expected api data command, got {other:?}"),
+        },
         other => panic!("expected data command, got {other:?}"),
     }
 }
@@ -259,6 +266,7 @@ fn parses_data_list_with_limit() {
 fn parses_keys_commands() {
     let create = Cli::try_parse_from([
         "abbot",
+        "api",
         "keys",
         "create",
         "--name",
@@ -269,23 +277,29 @@ fn parses_keys_commands() {
     .expect("keys create should parse");
 
     match create.command {
-        Command::Keys(keys) => match keys.command {
-            KeysSubcommand::Create(args) => {
-                assert_eq!(args.name.as_deref(), Some("CI runner"));
-                assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
-            }
-            other => panic!("expected keys create command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::Keys(keys) => match keys.command {
+                KeysSubcommand::Create(args) => {
+                    assert_eq!(args.name.as_deref(), Some("CI runner"));
+                    assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
+                }
+                other => panic!("expected keys create command, got {other:?}"),
+            },
+            other => panic!("expected api keys command, got {other:?}"),
         },
         other => panic!("expected keys command, got {other:?}"),
     }
 
-    let revoke_all =
-        Cli::try_parse_from(["abbot", "keys", "revoke-all"]).expect("keys revoke-all should parse");
+    let revoke_all = Cli::try_parse_from(["abbot", "api", "keys", "revoke-all"])
+        .expect("keys revoke-all should parse");
 
     match revoke_all.command {
-        Command::Keys(keys) => match keys.command {
-            KeysSubcommand::RevokeAll(_) => {}
-            other => panic!("expected keys revoke-all command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::Keys(keys) => match keys.command {
+                KeysSubcommand::RevokeAll(_) => {}
+                other => panic!("expected keys revoke-all command, got {other:?}"),
+            },
+            other => panic!("expected api keys command, got {other:?}"),
         },
         other => panic!("expected keys command, got {other:?}"),
     }
@@ -466,11 +480,11 @@ fn parses_top_level_update_flags() {
 
 #[test]
 fn parses_command_docs_path() {
-    let cli = Cli::try_parse_from(["abbot", "command", "auth", "machine", "connect"])
+    let cli = Cli::try_parse_from(["abbot", "guide", "auth", "machine", "connect"])
         .expect("command docs path should parse");
 
     match cli.command {
-        Command::Command(command) => {
+        Command::Guide(command) => {
             assert_eq!(command.path, vec!["auth", "machine", "connect"]);
         }
         other => panic!("expected command docs command, got {other:?}"),
@@ -478,14 +492,74 @@ fn parses_command_docs_path() {
 }
 
 #[test]
+fn parses_mcp_semantic_commands() {
+    let list = Cli::try_parse_from(["abbot", "mcp", "list"]).expect("mcp list should parse");
+    match list.command {
+        Command::Mcp(command) => match command.command {
+            McpSubcommand::List(_) => {}
+            other => panic!("expected mcp list command, got {other:?}"),
+        },
+        other => panic!("expected mcp command, got {other:?}"),
+    }
+
+    let call = Cli::try_parse_from([
+        "abbot",
+        "mcp",
+        "call",
+        "abbot_data",
+        "--arguments",
+        "{\"action\":\"list\",\"model\":\"rooms\"}",
+    ])
+    .expect("mcp call should parse");
+    match call.command {
+        Command::Mcp(command) => match command.command {
+            McpSubcommand::Call(args) => {
+                assert_eq!(args.tool, "abbot_data");
+                assert_eq!(
+                    args.arguments.as_deref(),
+                    Some("{\"action\":\"list\",\"model\":\"rooms\"}")
+                );
+            }
+            other => panic!("expected mcp call command, got {other:?}"),
+        },
+        other => panic!("expected mcp command, got {other:?}"),
+    }
+}
+
+#[test]
+fn rejects_removed_top_level_route_families() {
+    for args in [
+        ["abbot", "data"],
+        ["abbot", "describe"],
+        ["abbot", "bulk"],
+        ["abbot", "find"],
+        ["abbot", "keys"],
+        ["abbot", "user"],
+        ["abbot", "fs"],
+        ["abbot", "app"],
+        ["abbot", "public"],
+        ["abbot", "health"],
+        ["abbot", "command"],
+    ] {
+        assert!(
+            Cli::try_parse_from(args).is_err(),
+            "{args:?} should no longer parse"
+        );
+    }
+}
+
+#[test]
 fn parses_user_introspect_command() {
-    let cli =
-        Cli::try_parse_from(["abbot", "user", "introspect"]).expect("introspect should parse");
+    let cli = Cli::try_parse_from(["abbot", "api", "user", "introspect"])
+        .expect("introspect should parse");
 
     match cli.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::Introspect(_) => {}
-            other => panic!("expected user introspect command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::User(user) => match user.command {
+                crate::cli::UserSubcommand::Introspect(_) => {}
+                other => panic!("expected user introspect command, got {other:?}"),
+            },
+            other => panic!("expected api user command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }
@@ -495,6 +569,7 @@ fn parses_user_introspect_command() {
 fn parses_user_machine_keys_commands() {
     let create = Cli::try_parse_from([
         "abbot",
+        "api",
         "user",
         "machine-keys",
         "create",
@@ -510,23 +585,27 @@ fn parses_user_machine_keys_commands() {
     .expect("user machine-keys create should parse");
 
     match create.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::MachineKeys(command) => match command.command {
-                UserMachineKeysSubcommand::Create(args) => {
-                    assert_eq!(args.user_id.as_deref(), Some("user-1"));
-                    assert_eq!(args.public_key.as_deref(), Some("@machine.pub"));
-                    assert_eq!(args.name.as_deref(), Some("CI runner"));
-                    assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
-                }
-                other => panic!("expected user machine-keys create command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::User(user) => match user.command {
+                crate::cli::UserSubcommand::MachineKeys(command) => match command.command {
+                    UserMachineKeysSubcommand::Create(args) => {
+                        assert_eq!(args.user_id.as_deref(), Some("user-1"));
+                        assert_eq!(args.public_key.as_deref(), Some("@machine.pub"));
+                        assert_eq!(args.name.as_deref(), Some("CI runner"));
+                        assert_eq!(args.expires_at.as_deref(), Some("2026-12-31T23:59:59Z"));
+                    }
+                    other => panic!("expected user machine-keys create command, got {other:?}"),
+                },
+                other => panic!("expected user machine-keys command, got {other:?}"),
             },
-            other => panic!("expected user machine-keys command, got {other:?}"),
+            other => panic!("expected api user command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }
 
     let rotate = Cli::try_parse_from([
         "abbot",
+        "api",
         "user",
         "machine-keys",
         "rotate",
@@ -540,16 +619,19 @@ fn parses_user_machine_keys_commands() {
     .expect("user machine-keys rotate should parse");
 
     match rotate.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::MachineKeys(command) => match command.command {
-                UserMachineKeysSubcommand::Rotate(args) => {
-                    assert_eq!(args.key_id.as_deref(), Some("key-1"));
-                    assert_eq!(args.new_public_key.as_deref(), Some("@next.pub"));
-                    assert_eq!(args.revoke_old_after_seconds, Some(120));
-                }
-                other => panic!("expected rotate command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::User(user) => match user.command {
+                crate::cli::UserSubcommand::MachineKeys(command) => match command.command {
+                    UserMachineKeysSubcommand::Rotate(args) => {
+                        assert_eq!(args.key_id.as_deref(), Some("key-1"));
+                        assert_eq!(args.new_public_key.as_deref(), Some("@next.pub"));
+                        assert_eq!(args.revoke_old_after_seconds, Some(120));
+                    }
+                    other => panic!("expected rotate command, got {other:?}"),
+                },
+                other => panic!("expected user machine-keys command, got {other:?}"),
             },
-            other => panic!("expected user machine-keys command, got {other:?}"),
+            other => panic!("expected api user command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }
@@ -559,6 +641,7 @@ fn parses_user_machine_keys_commands() {
 fn parses_user_secrets_commands() {
     let create = Cli::try_parse_from([
         "abbot",
+        "api",
         "user",
         "secrets",
         "create",
@@ -576,30 +659,34 @@ fn parses_user_secrets_commands() {
     .expect("user secrets create should parse");
 
     match create.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::Secrets(command) => match command.command {
-                UserSecretsSubcommand::Create(args) => {
-                    assert_eq!(args.name.as_deref(), Some("openrouter_primary"));
-                    assert_eq!(
-                        args.value.as_deref(),
-                        Some("@~/.config/secrets/openrouter.key")
-                    );
-                    assert_eq!(args.kind.as_deref(), Some("api_key"));
-                    assert_eq!(args.description.as_deref(), Some("Primary OpenRouter key"));
-                    assert_eq!(
-                        args.metadata.as_deref(),
-                        Some("{\"provider\":\"openrouter\"}")
-                    );
-                }
-                other => panic!("expected user secrets create command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::User(user) => match user.command {
+                crate::cli::UserSubcommand::Secrets(command) => match command.command {
+                    UserSecretsSubcommand::Create(args) => {
+                        assert_eq!(args.name.as_deref(), Some("openrouter_primary"));
+                        assert_eq!(
+                            args.value.as_deref(),
+                            Some("@~/.config/secrets/openrouter.key")
+                        );
+                        assert_eq!(args.kind.as_deref(), Some("api_key"));
+                        assert_eq!(args.description.as_deref(), Some("Primary OpenRouter key"));
+                        assert_eq!(
+                            args.metadata.as_deref(),
+                            Some("{\"provider\":\"openrouter\"}")
+                        );
+                    }
+                    other => panic!("expected user secrets create command, got {other:?}"),
+                },
+                other => panic!("expected user secrets command, got {other:?}"),
             },
-            other => panic!("expected user secrets command, got {other:?}"),
+            other => panic!("expected api user command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }
 
     let update = Cli::try_parse_from([
         "abbot",
+        "api",
         "user",
         "secrets",
         "update",
@@ -612,33 +699,48 @@ fn parses_user_secrets_commands() {
     .expect("user secrets update should parse");
 
     match update.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::Secrets(command) => match command.command {
-                UserSecretsSubcommand::Update(args) => {
-                    assert_eq!(args.name, "openrouter_primary");
-                    assert_eq!(args.value.as_deref(), Some("-"));
-                    assert_eq!(
-                        args.metadata.as_deref(),
-                        Some("{\"provider\":\"openrouter\",\"rotation\":\"2026-04-23\"}")
-                    );
-                }
-                other => panic!("expected user secrets update command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::User(user) => match user.command {
+                crate::cli::UserSubcommand::Secrets(command) => match command.command {
+                    UserSecretsSubcommand::Update(args) => {
+                        assert_eq!(args.name, "openrouter_primary");
+                        assert_eq!(args.value.as_deref(), Some("-"));
+                        assert_eq!(
+                            args.metadata.as_deref(),
+                            Some("{\"provider\":\"openrouter\",\"rotation\":\"2026-04-23\"}")
+                        );
+                    }
+                    other => panic!("expected user secrets update command, got {other:?}"),
+                },
+                other => panic!("expected user secrets command, got {other:?}"),
             },
-            other => panic!("expected user secrets command, got {other:?}"),
+            other => panic!("expected api user command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }
 
-    let delete = Cli::try_parse_from(["abbot", "user", "secrets", "delete", "openrouter_primary"])
-        .expect("user secrets delete should parse");
+    let delete = Cli::try_parse_from([
+        "abbot",
+        "api",
+        "user",
+        "secrets",
+        "delete",
+        "openrouter_primary",
+    ])
+    .expect("user secrets delete should parse");
 
     match delete.command {
-        Command::User(user) => match user.command {
-            crate::cli::UserSubcommand::Secrets(command) => match command.command {
-                UserSecretsSubcommand::Delete(args) => assert_eq!(args.name, "openrouter_primary"),
-                other => panic!("expected user secrets delete command, got {other:?}"),
+        Command::Api(api) => match api.command {
+            ApiSubcommand::User(user) => match user.command {
+                crate::cli::UserSubcommand::Secrets(command) => match command.command {
+                    UserSecretsSubcommand::Delete(args) => {
+                        assert_eq!(args.name, "openrouter_primary")
+                    }
+                    other => panic!("expected user secrets delete command, got {other:?}"),
+                },
+                other => panic!("expected user secrets command, got {other:?}"),
             },
-            other => panic!("expected user secrets command, got {other:?}"),
+            other => panic!("expected api user command, got {other:?}"),
         },
         other => panic!("expected user command, got {other:?}"),
     }

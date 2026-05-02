@@ -71,10 +71,10 @@ impl TuiApp {
             }
 
             match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => {
-                    if self.handle_key(key).await? {
-                        break;
-                    }
+                Event::Key(key)
+                    if key.kind == KeyEventKind::Press && self.handle_key(key).await? =>
+                {
+                    break;
                 }
                 Event::Resize(_, _) => {}
                 _ => {}

@@ -10,11 +10,11 @@ Typical onboarding flow:
 
 1. `abbot auth register --tenant <tenant> --username <user> --email <email> --password <password>`
 2. `abbot auth login --tenant <tenant> --username <user> --password <password>` on later runs or other machines
-3. continue with `abbot public llms`, `abbot describe list`, or `abbot data list <model>`
+3. continue with `abbot docs path /llms.txt`, `abbot api describe list`, or `abbot api data list <model>`
 
 For existing tenants, redeem an invite instead:
 
-1. `abbot user invite --username alice --invite-type human`
+1. `abbot api user invite --username alice --invite-type human`
 2. `abbot auth register --tenant acme --username alice --invite-code <code> --email alice@example.com --password @auth-password.txt`
 
 The server no longer returns a JWT directly from `/auth/register`, so this
