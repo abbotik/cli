@@ -102,14 +102,20 @@ pub enum LlmFactorySubcommand {
     CreateIssue(FactoryRunIdArg),
     /// Update one issue record
     UpdateIssue(FactoryRunIssueArg),
+    /// Dispatch one issue with caller-supplied prompt content
+    DispatchIssue(FactoryRunIssueArg),
     /// List emitted artifacts for one run
     Artifacts(FactoryRunIdArg),
+    /// Create an artifact record for one run
+    CreateArtifact(FactoryRunIdArg),
     /// Advance the run state machine
     Advance(FactoryRunIdArg),
     /// Execute verification and persist the report
     Verify(FactoryRunIdArg),
     /// Evaluate and persist a gate verdict
     GateCheck(FactoryRunIdArg),
+    /// Create an externally supplied gate verdict
+    CreateGate(FactoryRunIdArg),
     /// Read the latest review bundle
     Review(FactoryRunIdArg),
 }

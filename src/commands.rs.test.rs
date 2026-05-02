@@ -718,6 +718,55 @@ fn parses_llm_factory_commands() {
         },
         other => panic!("expected llm command, got {other:?}"),
     }
+
+    let dispatch = Cli::try_parse_from([
+        "abbot",
+        "llm",
+        "factory",
+        "dispatch-issue",
+        "run_123",
+        "issue_456",
+    ])
+    .expect("llm factory dispatch-issue should parse");
+    match dispatch.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Factory(factory) => match factory.command {
+                LlmFactorySubcommand::DispatchIssue(arg) => {
+                    assert_eq!(arg.id, "run_123");
+                    assert_eq!(arg.issue_id, "issue_456");
+                }
+                other => panic!("expected llm factory dispatch-issue command, got {other:?}"),
+            },
+            other => panic!("expected llm factory command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let artifact = Cli::try_parse_from(["abbot", "llm", "factory", "create-artifact", "run_123"])
+        .expect("llm factory create-artifact should parse");
+    match artifact.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Factory(factory) => match factory.command {
+                LlmFactorySubcommand::CreateArtifact(arg) => assert_eq!(arg.id, "run_123"),
+                other => panic!("expected llm factory create-artifact command, got {other:?}"),
+            },
+            other => panic!("expected llm factory command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let gate = Cli::try_parse_from(["abbot", "llm", "factory", "create-gate", "run_123"])
+        .expect("llm factory create-gate should parse");
+    match gate.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Factory(factory) => match factory.command {
+                LlmFactorySubcommand::CreateGate(arg) => assert_eq!(arg.id, "run_123"),
+                other => panic!("expected llm factory create-gate command, got {other:?}"),
+            },
+            other => panic!("expected llm factory command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
 }
 
 #[test]

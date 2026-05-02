@@ -170,9 +170,28 @@ async fn llm_factory(command: LlmFactoryCommand, client: &ApiClient) -> anyhow::
                 )
                 .await?,
         )?,
+        LlmFactorySubcommand::DispatchIssue(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!(
+                        "/llm/factory/runs/{}/issues/{}/dispatch",
+                        arg.id, arg.issue_id
+                    ),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
         LlmFactorySubcommand::Artifacts(arg) => print_json(
             &client
                 .get_json::<Value>(&format!("/llm/factory/runs/{}/artifacts", arg.id))
+                .await?,
+        )?,
+        LlmFactorySubcommand::CreateArtifact(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/artifacts", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
                 .await?,
         )?,
         LlmFactorySubcommand::Advance(arg) => print_json(
@@ -195,6 +214,14 @@ async fn llm_factory(command: LlmFactoryCommand, client: &ApiClient) -> anyhow::
             &client
                 .post_json::<_, Value>(
                     &format!("/llm/factory/runs/{}/gate-check", arg.id),
+                    &read_json_body_or_default(json!({}))?,
+                )
+                .await?,
+        )?,
+        LlmFactorySubcommand::CreateGate(arg) => print_json(
+            &client
+                .post_json::<_, Value>(
+                    &format!("/llm/factory/runs/{}/gates", arg.id),
                     &read_json_body_or_default(json!({}))?,
                 )
                 .await?,
