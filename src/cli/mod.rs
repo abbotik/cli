@@ -15,6 +15,7 @@ mod data;
 mod describe;
 mod docs;
 mod doctor;
+mod factory;
 mod find;
 mod fs;
 mod keys;
@@ -40,6 +41,7 @@ pub use data::*;
 pub use describe::*;
 pub use docs::*;
 pub use doctor::*;
+pub use factory::*;
 pub use find::*;
 pub use fs::*;
 pub use keys::*;
@@ -114,6 +116,8 @@ pub enum Command {
     Find(FindCommand),
     /// Tenant filesystem workflows
     Fs(FsCommand),
+    /// High-level durable factory workflow operations
+    Factory(FactoryCommand),
     /// Health checks
     Health,
     /// Self-service bearer API key management

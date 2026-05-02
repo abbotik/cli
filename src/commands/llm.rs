@@ -105,6 +105,11 @@ async fn llm_factory(command: LlmFactoryCommand, client: &ApiClient) -> anyhow::
                 .get_json::<Value>(&format!("/llm/factory/runs/{}", arg.id))
                 .await?,
         )?,
+        LlmFactorySubcommand::Start(arg) => print_json(
+            &client
+                .post_json::<_, Value>(&format!("/llm/factory/runs/{}/start", arg.id), &json!({}))
+                .await?,
+        )?,
         LlmFactorySubcommand::Status(arg) => print_json(
             &client
                 .get_json::<Value>(&format!("/llm/factory/runs/{}/status", arg.id))

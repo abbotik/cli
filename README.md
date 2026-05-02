@@ -121,6 +121,23 @@ The API encrypts secret values at rest and CLI list/delete responses only show
 metadata returned by `/api/user/secrets`; plaintext is sent only on create or
 update.
 
+## Factory
+
+Use `abbot factory` for high-level durable workflow operations:
+
+```bash
+abbot factory create --prompt "create me a marketing plan for an iPhone app"
+abbot factory create --plan ./plan.md --workflow software.delivery --subject repo:abbotik/api
+abbot factory start <run_id>
+abbot factory status <run_id>
+abbot factory watch <run_id>
+abbot factory artifacts <run_id>
+abbot factory review <run_id>
+```
+
+The lower-level `abbot llm factory` branch remains available for route-shaped
+debugging and manual state authoring.
+
 ## TUI
 
 `abbot tui` opens a terminal operator console over the real Abbotik room and

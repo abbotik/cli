@@ -2,8 +2,9 @@ use clap::Parser;
 
 use crate::cli::{
     AuthSubcommand, AuthTokenSubcommand, Cli, Command, ConfigCommand, ConfigSubcommand,
-    DataSubcommand, DoctorCommand, KeysSubcommand, LlmFactorySubcommand, LlmRoomSubcommand,
-    LlmSubcommand, TuiCommand, UpdateCommand, UserMachineKeysSubcommand, UserSecretsSubcommand,
+    DataSubcommand, DoctorCommand, FactorySubcommand, KeysSubcommand, LlmFactorySubcommand,
+    LlmRoomSubcommand, LlmSubcommand, TuiCommand, UpdateCommand, UserMachineKeysSubcommand,
+    UserSecretsSubcommand,
 };
 
 #[test]
@@ -703,6 +704,67 @@ fn parses_llm_factory_commands() {
             other => panic!("expected llm factory command, got {other:?}"),
         },
         other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let start = Cli::try_parse_from(["abbot", "llm", "factory", "start", "run_123"])
+        .expect("llm factory start should parse");
+    match start.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Factory(factory) => match factory.command {
+                LlmFactorySubcommand::Start(arg) => assert_eq!(arg.id, "run_123"),
+                other => panic!("expected llm factory start command, got {other:?}"),
+            },
+            other => panic!("expected llm factory command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_top_level_factory_commands() {
+    let create = Cli::try_parse_from([
+        "abbot",
+        "factory",
+        "create",
+        "--prompt",
+        "ship it",
+        "--workflow",
+        "software.delivery",
+        "--subject",
+        "repo:abbotik/api",
+    ])
+    .expect("factory create should parse");
+
+    match create.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Create(args) => {
+                assert_eq!(args.prompt.as_deref(), Some("ship it"));
+                assert_eq!(args.workflow.as_deref(), Some("software.delivery"));
+                assert_eq!(args.subject.as_deref(), Some("repo:abbotik/api"));
+            }
+            other => panic!("expected factory create command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
+    let start = Cli::try_parse_from(["abbot", "factory", "start", "run_123"])
+        .expect("factory start should parse");
+    match start.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Start(arg) => assert_eq!(arg.id, "run_123"),
+            other => panic!("expected factory start command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
+    let watch = Cli::try_parse_from(["abbot", "factory", "watch", "run_123"])
+        .expect("factory watch should parse");
+    match watch.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Watch(arg) => assert_eq!(arg.id, "run_123"),
+            other => panic!("expected factory watch command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
     }
 }
 

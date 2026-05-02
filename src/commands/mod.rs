@@ -36,6 +36,7 @@ mod data;
 mod describe;
 mod docs;
 mod doctor;
+mod factory;
 mod find;
 mod fs;
 mod io;
@@ -111,6 +112,7 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Llm(command) => llm::run(command, &client).await?,
         Command::Cron(command) => cron::run(command, &client).await?,
         Command::Fs(command) => fs::run(command, &client).await?,
+        Command::Factory(command) => factory::run(command, &client).await?,
         Command::App(command) => app::run(command, &client).await?,
         Command::Tui(command) => tui::run(command, &client).await?,
         Command::Update(command) => update::run(command).await?,

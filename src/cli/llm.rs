@@ -82,6 +82,8 @@ pub enum LlmFactorySubcommand {
     Create,
     /// Fetch one factory run by ID
     Get(FactoryRunIdArg),
+    /// Start or wake the factory supervisor for one run
+    Start(FactoryRunIdArg),
     /// Read aggregate run status
     Status(FactoryRunIdArg),
     /// List checkpoint records for one run

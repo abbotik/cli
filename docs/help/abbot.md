@@ -25,6 +25,7 @@ Other root branches:
 - `doctor` for active-profile diagnostics and connection checks
 - `find` for advanced query operations
 - `fs` for tenant filesystem access
+- `factory` for high-level durable workflow operations
 - `health` for a quick service check
 - `keys` for durable self-service bearer API keys
 - `llm` for rooms, factory runs, and provider discovery
