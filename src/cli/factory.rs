@@ -11,6 +11,8 @@ pub enum FactorySubcommand {
     /// Submit prompt text to Factory and wake the run
     #[command(visible_alias = "create")]
     Submit(FactorySubmitCommand),
+    /// Submit prompt text, wake the run, and wait
+    Run(FactoryRunCommand),
     /// Start or wake a factory run
     Start(FactoryRunIdArg),
     /// Read aggregate run status
@@ -49,11 +51,16 @@ pub struct FactorySubmitCommand {
 }
 
 #[derive(Args, Debug)]
-pub struct FactoryWatchCommand {
-    /// Factory run id
-    #[arg(value_name = "RUN")]
-    pub id: String,
+pub struct FactoryRunCommand {
+    #[command(flatten)]
+    pub submit: FactorySubmitCommand,
 
+    #[command(flatten)]
+    pub wait: FactoryWaitOptions,
+}
+
+#[derive(Args, Debug)]
+pub struct FactoryWaitOptions {
     /// Poll interval in seconds
     #[arg(long, default_value_t = 10)]
     pub interval: u64,
@@ -73,4 +80,14 @@ pub enum FactoryWatchUntil {
     Failed,
     Blocked,
     Attention,
+}
+
+#[derive(Args, Debug)]
+pub struct FactoryWatchCommand {
+    /// Factory run id
+    #[arg(value_name = "RUN")]
+    pub id: String,
+
+    #[command(flatten)]
+    pub wait: FactoryWaitOptions,
 }

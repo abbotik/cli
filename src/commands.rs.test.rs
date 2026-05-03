@@ -1187,6 +1187,32 @@ fn parses_top_level_factory_commands() {
         other => panic!("expected factory command, got {other:?}"),
     }
 
+    let run = Cli::try_parse_from([
+        "abbot",
+        "factory",
+        "run",
+        "ship it",
+        "--interval",
+        "5",
+        "--timeout",
+        "30",
+        "--until",
+        "attention",
+    ])
+    .expect("factory run should parse");
+    match run.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Run(args) => {
+                assert_eq!(args.submit.prompt_text.as_deref(), Some("ship it"));
+                assert_eq!(args.wait.interval, 5);
+                assert_eq!(args.wait.timeout, Some(30));
+                assert_eq!(args.wait.until, Some(FactoryWatchUntil::Attention));
+            }
+            other => panic!("expected factory run command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
     let start = Cli::try_parse_from(["abbot", "factory", "start", "run_123"])
         .expect("factory start should parse");
     match start.command {
@@ -1214,9 +1240,9 @@ fn parses_top_level_factory_commands() {
         Command::Factory(command) => match command.command {
             FactorySubcommand::Watch(arg) => {
                 assert_eq!(arg.id, "run_123");
-                assert_eq!(arg.interval, 5);
-                assert_eq!(arg.timeout, Some(30));
-                assert_eq!(arg.until, Some(FactoryWatchUntil::Completed));
+                assert_eq!(arg.wait.interval, 5);
+                assert_eq!(arg.wait.timeout, Some(30));
+                assert_eq!(arg.wait.until, Some(FactoryWatchUntil::Completed));
             }
             other => panic!("expected factory watch command, got {other:?}"),
         },

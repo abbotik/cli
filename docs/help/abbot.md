@@ -33,7 +33,7 @@ For first-time human bootstrap, use:
 1. `abbot auth register --tenant <tenant> --username <user> --email <email> --password <password>`
 2. `abbot auth login --tenant <tenant> --username <user> --password <password>` on later runs or other machines
 3. `abbot doctor`
-4. `abbot tui` or `abbot factory submit --prompt "..."`
+4. `abbot tui` or `abbot factory run "..."`
 
 To work with multiple API servers, log in per host:
 

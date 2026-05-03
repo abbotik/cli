@@ -3,6 +3,7 @@ use super::*;
 pub(super) async fn run(command: FactoryCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
         FactorySubcommand::Submit(args) => submit_run(args, client).await?,
+        FactorySubcommand::Run(args) => run_factory(args, client).await?,
         FactorySubcommand::Start(arg) => print_json(
             &client
                 .post_json::<_, Value>(&format!("/llm/factory/runs/{}/start", arg.id), &json!({}))
@@ -24,6 +25,34 @@ pub(super) async fn run(command: FactoryCommand, client: &ApiClient) -> anyhow::
 }
 
 async fn submit_run(args: FactorySubmitCommand, client: &ApiClient) -> anyhow::Result<()> {
+    let SubmittedFactoryRun {
+        run_id,
+        create_response,
+        start_response,
+    } = submit_factory_run(args, client).await?;
+    print_json(&json!({
+        "run_id": run_id,
+        "create": create_response,
+        "start": start_response,
+    }))
+}
+
+async fn run_factory(args: FactoryRunCommand, client: &ApiClient) -> anyhow::Result<()> {
+    let SubmittedFactoryRun { run_id, .. } = submit_factory_run(args.submit, client).await?;
+    print_text(&format!("Submitted factory run {run_id}."))?;
+    watch_factory_run(&run_id, args.wait, client).await
+}
+
+struct SubmittedFactoryRun {
+    run_id: String,
+    create_response: Value,
+    start_response: Value,
+}
+
+async fn submit_factory_run(
+    args: FactorySubmitCommand,
+    client: &ApiClient,
+) -> anyhow::Result<SubmittedFactoryRun> {
     let create_response = client
         .post_json::<_, Value>("/llm/factory/runs", &create_body(args)?)
         .await?;
@@ -32,25 +61,34 @@ async fn submit_run(args: FactorySubmitCommand, client: &ApiClient) -> anyhow::R
     let start_response = client
         .post_json::<_, Value>(&format!("/llm/factory/runs/{run_id}/start"), &json!({}))
         .await?;
-    print_json(&json!({
-        "run_id": run_id,
-        "create": create_response,
-        "start": start_response,
-    }))
+
+    Ok(SubmittedFactoryRun {
+        run_id,
+        create_response,
+        start_response,
+    })
 }
 
 async fn watch_run(args: FactoryWatchCommand, client: &ApiClient) -> anyhow::Result<()> {
-    if args.interval == 0 {
+    watch_factory_run(&args.id, args.wait, client).await
+}
+
+async fn watch_factory_run(
+    run_id: &str,
+    wait: FactoryWaitOptions,
+    client: &ApiClient,
+) -> anyhow::Result<()> {
+    if wait.interval == 0 {
         anyhow::bail!("factory watch --interval must be greater than zero");
     }
 
     print_text(&format!(
         "Watching {}. Press Ctrl-C to detach; the factory run will continue.",
-        args.id
+        run_id
     ))?;
 
     let started = std::time::Instant::now();
-    let timeout = args.timeout.map(std::time::Duration::from_secs);
+    let timeout = wait.timeout.map(std::time::Duration::from_secs);
     loop {
         if let Some(timeout) = timeout {
             if started.elapsed() >= timeout {
@@ -62,20 +100,20 @@ async fn watch_run(args: FactoryWatchCommand, client: &ApiClient) -> anyhow::Res
         }
 
         let response = client
-            .get_json::<Value>(&format!("/llm/factory/runs/{}/status", args.id))
+            .get_json::<Value>(&format!("/llm/factory/runs/{run_id}/status"))
             .await?;
         let status = response_data(&response);
         print_text(&watch_status_line(status))?;
 
-        let stop = watch_stop(status, args.until);
+        let stop = watch_stop(status, wait.until);
         if stop.stop {
             if stop.failed {
-                anyhow::bail!("factory run {} failed", args.id);
+                anyhow::bail!("factory run {run_id} failed");
             }
             break;
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(args.interval)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(wait.interval)).await;
     }
 
     Ok(())
