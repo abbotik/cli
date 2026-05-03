@@ -20,62 +20,81 @@ async fn llm_room(command: LlmRoomCommand, client: &ApiClient) -> anyhow::Result
     match command.command {
         LlmRoomSubcommand::List => print_json(&client.get_json::<Value>("/llm/room").await?)?,
         LlmRoomSubcommand::Create(args) => create_room(args, client).await?,
-        LlmRoomSubcommand::Get(arg) => print_json(
-            &client
-                .get_json::<Value>(&format!("/llm/room/{}", arg.id))
-                .await?,
-        )?,
-        LlmRoomSubcommand::Update(arg) => print_json(
-            &client
-                .patch_json::<_, Value>(
-                    &format!("/llm/room/{}", arg.id),
-                    &read_json_body_or_default(json!({}))?,
-                )
-                .await?,
-        )?,
-        LlmRoomSubcommand::Message(arg) => print_json(
-            &client
-                .post_json::<_, Value>(
-                    &format!("/llm/room/{}/messages", arg.id),
-                    &read_json_body_or_default(json!({}))?,
-                )
-                .await?,
-        )?,
-        LlmRoomSubcommand::Wake(arg) => print_json(
-            &client
-                .post_json::<_, Value>(
-                    &format!("/llm/room/{}/wake", arg.id),
-                    &read_json_body_or_default(json!({}))?,
-                )
-                .await?,
-        )?,
+        LlmRoomSubcommand::Get(arg) => {
+            let room_id = resolve_active_room_target(client, &arg.room).await?;
+            print_json(
+                &client
+                    .get_json::<Value>(&format!("/llm/room/{room_id}"))
+                    .await?,
+            )?
+        }
+        LlmRoomSubcommand::Update(arg) => {
+            let room_id = resolve_active_room_target(client, &arg.room).await?;
+            print_json(
+                &client
+                    .patch_json::<_, Value>(
+                        &format!("/llm/room/{room_id}"),
+                        &read_json_body_or_default(json!({}))?,
+                    )
+                    .await?,
+            )?
+        }
+        LlmRoomSubcommand::Message(arg) => {
+            let room_id = resolve_active_room_target(client, &arg.room).await?;
+            print_json(
+                &client
+                    .post_json::<_, Value>(
+                        &format!("/llm/room/{room_id}/messages"),
+                        &read_json_body_or_default(json!({}))?,
+                    )
+                    .await?,
+            )?
+        }
+        LlmRoomSubcommand::Wake(arg) => {
+            let room_id = resolve_active_room_target(client, &arg.room).await?;
+            print_json(
+                &client
+                    .post_json::<_, Value>(
+                        &format!("/llm/room/{room_id}/wake"),
+                        &read_json_body_or_default(json!({}))?,
+                    )
+                    .await?,
+            )?
+        }
         LlmRoomSubcommand::Run(args) => run_room_prompt(args, client).await?,
         LlmRoomSubcommand::Events(args) => {
+            let room_id = resolve_active_room_target(client, &args.target.room).await?;
             let query = vec![("follow".to_string(), args.follow.to_string())];
             print_text(
                 &client
                     .request_text_with_query::<(), _>(
                         Method::GET,
-                        &format!("/llm/room/{}/events", args.id),
+                        &format!("/llm/room/{room_id}/events"),
                         Some(&query),
                         None,
                     )
                     .await?,
             )?
         }
-        LlmRoomSubcommand::History(arg) => print_json(
-            &client
-                .get_json::<Value>(&format!("/llm/room/{}/history", arg.id))
-                .await?,
-        )?,
-        LlmRoomSubcommand::Interrupt(arg) => print_json(
-            &client
-                .post_json::<_, Value>(
-                    &format!("/llm/room/{}/interrupt", arg.id),
-                    &read_json_body_or_default(json!({}))?,
-                )
-                .await?,
-        )?,
+        LlmRoomSubcommand::History(arg) => {
+            let room_id = resolve_active_room_target(client, &arg.room).await?;
+            print_json(
+                &client
+                    .get_json::<Value>(&format!("/llm/room/{room_id}/history"))
+                    .await?,
+            )?
+        }
+        LlmRoomSubcommand::Interrupt(arg) => {
+            let room_id = resolve_active_room_target(client, &arg.room).await?;
+            print_json(
+                &client
+                    .post_json::<_, Value>(
+                        &format!("/llm/room/{room_id}/interrupt"),
+                        &read_json_body_or_default(json!({}))?,
+                    )
+                    .await?,
+            )?
+        }
         LlmRoomSubcommand::Release(args) => release_room(args, client).await?,
     }
     Ok(())
@@ -152,15 +171,13 @@ fn build_room_create_body(args: LlmRoomCreateCommand) -> anyhow::Result<Value> {
 
 async fn ensure_room_name_available(client: &ApiClient, name: &str) -> anyhow::Result<()> {
     if find_room_by_name(client, name).await?.is_some() {
-        anyhow::bail!(
-            "room named `{name}` already exists; use `abbot llm room run --name {name} ...`"
-        );
+        anyhow::bail!("room named `{name}` already exists; use `abbot llm room run {name} ...`");
     }
     Ok(())
 }
 
 async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow::Result<()> {
-    let room_id = resolve_room_id(client, args.name.as_deref(), args.id.as_deref()).await?;
+    let room_id = resolve_active_room_target(client, &args.room).await?;
     let mut stream_state = if args.stream || args.debug {
         RoomStreamState::from_history(
             &client
@@ -206,13 +223,7 @@ async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow:
 }
 
 async fn release_room(args: LlmRoomReleaseCommand, client: &ApiClient) -> anyhow::Result<()> {
-    let room_id = resolve_release_room_id(
-        client,
-        args.name.as_deref(),
-        args.id.as_deref(),
-        args.positional_id.as_deref(),
-    )
-    .await?;
+    let room_id = resolve_releasable_room_target(client, &args.room).await?;
     print_json(
         &client
             .post_json::<_, Value>(
@@ -224,42 +235,27 @@ async fn release_room(args: LlmRoomReleaseCommand, client: &ApiClient) -> anyhow
     Ok(())
 }
 
-async fn resolve_room_id(
-    client: &ApiClient,
-    name: Option<&str>,
-    id: Option<&str>,
-) -> anyhow::Result<String> {
-    match (name, id) {
-        (Some(_), Some(_)) => anyhow::bail!("use either --name or --id, not both"),
-        (Some(name), None) => find_room_by_name(client, name)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("no active room named `{name}`")),
-        (None, Some(id)) => Ok(id.to_string()),
-        (None, None) => anyhow::bail!("room run requires --name <name> or --id <room-id>"),
+async fn resolve_active_room_target(client: &ApiClient, target: &str) -> anyhow::Result<String> {
+    if is_uuid_shape(target) {
+        return Ok(target.to_string());
     }
+
+    find_room_by_name(client, target)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("no active room named `{target}`"))
 }
 
-async fn resolve_release_room_id(
+async fn resolve_releasable_room_target(
     client: &ApiClient,
-    name: Option<&str>,
-    id: Option<&str>,
-    positional_id: Option<&str>,
+    target: &str,
 ) -> anyhow::Result<String> {
-    let specified = name.is_some() as u8 + id.is_some() as u8 + positional_id.is_some() as u8;
-    match specified {
-        0 => anyhow::bail!("room release requires --name <name> or <id>"),
-        1 => {}
-        _ => anyhow::bail!("use only one of --name, --id, or positional ID"),
+    if is_uuid_shape(target) {
+        return Ok(target.to_string());
     }
 
-    if let Some(id) = id.or(positional_id) {
-        return Ok(id.to_string());
-    }
-
-    let name = name.expect("specified name");
-    find_room_by_name_for_release(client, name)
+    find_room_by_name_for_release(client, target)
         .await?
-        .ok_or_else(|| anyhow::anyhow!("no releasable room named `{name}`"))
+        .ok_or_else(|| anyhow::anyhow!("no releasable room named `{target}`"))
 }
 
 async fn find_room_by_name(client: &ApiClient, name: &str) -> anyhow::Result<Option<String>> {
@@ -733,6 +729,18 @@ fn format_usage_summary(usage: &Value) -> Option<String> {
 
 fn short_id(id: &str) -> String {
     id.chars().take(8).collect()
+}
+
+fn is_uuid_shape(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 36 {
+        return false;
+    }
+
+    bytes.iter().enumerate().all(|(index, byte)| match index {
+        8 | 13 | 18 | 23 => *byte == b'-',
+        _ => byte.is_ascii_hexdigit(),
+    })
 }
 
 fn preview_text(text: &str, max_chars: usize) -> String {

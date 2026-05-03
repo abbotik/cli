@@ -845,12 +845,39 @@ fn parses_llm_room_commands() {
         other => panic!("expected llm command, got {other:?}"),
     }
 
+    let get = Cli::try_parse_from(["abbot", "llm", "room", "get", "math"])
+        .expect("llm room get should parse");
+
+    match get.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Get(args) => assert_eq!(args.room, "math"),
+                other => panic!("expected llm room get command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let update = Cli::try_parse_from(["abbot", "llm", "room", "update", "math"])
+        .expect("llm room update should parse");
+
+    match update.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Update(args) => assert_eq!(args.room, "math"),
+                other => panic!("expected llm room update command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
     let run = Cli::try_parse_from([
         "abbot",
         "llm",
         "room",
         "run",
-        "--name",
         "math",
         "Calculate 42 * 19",
         "--stream",
@@ -862,7 +889,7 @@ fn parses_llm_room_commands() {
         Command::Llm(command) => match command.command {
             LlmSubcommand::Room(room) => match room.command {
                 LlmRoomSubcommand::Run(args) => {
-                    assert_eq!(args.name.as_deref(), Some("math"));
+                    assert_eq!(args.room, "math");
                     assert_eq!(args.prompt, "Calculate 42 * 19");
                     assert!(args.stream);
                     assert!(args.debug);
@@ -881,9 +908,23 @@ fn parses_llm_room_commands() {
         Command::Llm(command) => match command.command {
             LlmSubcommand::Room(room) => match room.command {
                 LlmRoomSubcommand::Message(arg) => {
-                    assert_eq!(arg.id, "room_123");
+                    assert_eq!(arg.room, "room_123");
                 }
                 other => panic!("expected llm room message command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let wake = Cli::try_parse_from(["abbot", "llm", "room", "wake", "math"])
+        .expect("llm room wake should parse");
+
+    match wake.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Wake(args) => assert_eq!(args.room, "math"),
+                other => panic!("expected llm room wake command, got {other:?}"),
             },
             other => panic!("expected llm room command, got {other:?}"),
         },
@@ -897,7 +938,7 @@ fn parses_llm_room_commands() {
         Command::Llm(command) => match command.command {
             LlmSubcommand::Room(room) => match room.command {
                 LlmRoomSubcommand::Events(args) => {
-                    assert_eq!(args.id, "room_123");
+                    assert_eq!(args.target.room, "room_123");
                     assert!(args.follow);
                 }
                 other => panic!("expected llm room events command, got {other:?}"),
@@ -907,17 +948,42 @@ fn parses_llm_room_commands() {
         other => panic!("expected llm command, got {other:?}"),
     }
 
-    let release_by_name =
-        Cli::try_parse_from(["abbot", "llm", "room", "release", "--name", "math"])
-            .expect("llm room release --name should parse");
+    let history = Cli::try_parse_from(["abbot", "llm", "room", "history", "math"])
+        .expect("llm room history should parse");
+
+    match history.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::History(args) => assert_eq!(args.room, "math"),
+                other => panic!("expected llm room history command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let interrupt = Cli::try_parse_from(["abbot", "llm", "room", "interrupt", "math"])
+        .expect("llm room interrupt should parse");
+
+    match interrupt.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Interrupt(args) => assert_eq!(args.room, "math"),
+                other => panic!("expected llm room interrupt command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let release_by_name = Cli::try_parse_from(["abbot", "llm", "room", "release", "math"])
+        .expect("llm room release by name should parse");
 
     match release_by_name.command {
         Command::Llm(command) => match command.command {
             LlmSubcommand::Room(room) => match room.command {
                 LlmRoomSubcommand::Release(args) => {
-                    assert_eq!(args.name.as_deref(), Some("math"));
-                    assert_eq!(args.id.as_deref(), None);
-                    assert_eq!(args.positional_id.as_deref(), None);
+                    assert_eq!(args.room, "math");
                 }
                 other => panic!("expected llm room release command, got {other:?}"),
             },
@@ -933,9 +999,7 @@ fn parses_llm_room_commands() {
         Command::Llm(command) => match command.command {
             LlmSubcommand::Room(room) => match room.command {
                 LlmRoomSubcommand::Release(args) => {
-                    assert_eq!(args.positional_id.as_deref(), Some("room_123"));
-                    assert_eq!(args.name.as_deref(), None);
-                    assert_eq!(args.id.as_deref(), None);
+                    assert_eq!(args.room, "room_123");
                 }
                 other => panic!("expected llm room release command, got {other:?}"),
             },

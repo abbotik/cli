@@ -41,24 +41,31 @@ pub enum LlmRoomSubcommand {
     List,
     /// Rent a new room
     Create(LlmRoomCreateCommand),
-    /// Fetch one room by ID
-    Get(RoomIdArg),
+    /// Fetch one room by UUID or name
+    Get(LlmRoomTargetCommand),
     /// Update mutable room configuration
-    Update(RoomIdArg),
+    Update(LlmRoomTargetCommand),
     /// Inject one semantic room message
-    Message(RoomIdArg),
+    Message(LlmRoomTargetCommand),
     /// Wake a room explicitly
-    Wake(RoomIdArg),
+    Wake(LlmRoomTargetCommand),
     /// Send one prompt to a room and wait for the result
     Run(LlmRoomRunCommand),
     /// Replay durable room events and optionally follow live SSE
     Events(LlmRoomEventsCommand),
     /// Read durable room history
-    History(RoomIdArg),
+    History(LlmRoomTargetCommand),
     /// Interrupt an in-flight turn
-    Interrupt(RoomIdArg),
+    Interrupt(LlmRoomTargetCommand),
     /// Release a room explicitly
     Release(LlmRoomReleaseCommand),
+}
+
+#[derive(Args, Debug)]
+pub struct LlmRoomTargetCommand {
+    /// Room UUID or stable room name
+    #[arg(value_name = "ROOM")]
+    pub room: String,
 }
 
 #[derive(Args, Debug, Default)]
@@ -94,16 +101,12 @@ pub struct LlmRoomCreateCommand {
 
 #[derive(Args, Debug)]
 pub struct LlmRoomRunCommand {
+    /// Room UUID or stable room name
+    #[arg(value_name = "ROOM")]
+    pub room: String,
+
     /// Prompt to send to the room
     pub prompt: String,
-
-    /// Stable CLI room name
-    #[arg(long)]
-    pub name: Option<String>,
-
-    /// Room id, when not using --name
-    #[arg(long)]
-    pub id: Option<String>,
 
     /// Stream assistant text to stdout as it arrives
     #[arg(long)]
@@ -122,24 +125,12 @@ pub struct LlmRoomRunCommand {
     pub poll_seconds: u64,
 }
 
-#[derive(Args, Debug)]
-pub struct LlmRoomReleaseCommand {
-    /// Room id, when not using --name or --id
-    #[arg(value_name = "ID")]
-    pub positional_id: Option<String>,
-
-    /// Stable CLI room name
-    #[arg(long)]
-    pub name: Option<String>,
-
-    /// Room id, when not using positional ID
-    #[arg(long)]
-    pub id: Option<String>,
-}
+pub type LlmRoomReleaseCommand = LlmRoomTargetCommand;
 
 #[derive(Args, Debug)]
 pub struct LlmRoomEventsCommand {
-    pub id: String,
+    #[command(flatten)]
+    pub target: LlmRoomTargetCommand,
 
     /// Keep the SSE stream attached after replaying durable history
     #[arg(long)]
