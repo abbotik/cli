@@ -2,60 +2,320 @@ use super::*;
 
 pub(super) async fn run(command: FactoryCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
-        FactorySubcommand::List => print_json(&client.get_json::<Value>("/llm/factory/runs").await?)?,
+        FactorySubcommand::List(args) => {
+            let response = client.get_json::<Value>("/llm/factory/runs").await?;
+            if args.json {
+                print_json(&response)?;
+            } else {
+                print_text(&render_runs_table(response_data(&response)))?;
+            }
+        }
         FactorySubcommand::Submit(args) => submit_run(args, client).await?,
         FactorySubcommand::Run(args) => run_factory(args, client).await?,
-        FactorySubcommand::Start(arg) => print_json(
-            &client
+        FactorySubcommand::Start(arg) => {
+            let response = client
                 .post_json::<_, Value>(&format!("/llm/factory/runs/{}/start", arg.id), &json!({}))
-                .await?,
-        )?,
-        FactorySubcommand::Status(arg) => print_json(
-            &client
+                .await?;
+            if arg.json {
+                print_json(&response)?;
+            } else {
+                print_text(&render_start_response(response_data(&response)))?;
+            }
+        }
+        FactorySubcommand::Status(arg) => {
+            let response = client
                 .get_json::<Value>(&format!("/llm/factory/runs/{}/status", arg.id))
-                .await?,
-        )?,
+                .await?;
+            if arg.json {
+                print_json(&response)?;
+            } else {
+                print_text(&render_status(response_data(&response)))?;
+            }
+        }
         FactorySubcommand::Cancel(arg) => {
             let mut body = json!({});
-            if let Some(reason) = arg.reason {
-                body["reason"] = Value::String(reason);
+            if let Some(reason) = arg.reason.as_deref() {
+                body["reason"] = Value::String(reason.to_string());
             }
-            print_json(
-                &client
-                    .post_json::<_, Value>(
-                        &format!("/llm/factory/runs/{}/cancel", arg.id),
-                        &body,
-                    )
-                    .await?,
-            )?
+            let response = client
+                .post_json::<_, Value>(&format!("/llm/factory/runs/{}/cancel", arg.id), &body)
+                .await?;
+            if arg.json {
+                print_json(&response)?;
+            } else {
+                print_text(&render_cancel_response(response_data(&response)))?;
+            }
         }
         FactorySubcommand::Watch(arg) => watch_run(arg, client).await?,
-        FactorySubcommand::Review(arg) => print_json(
-            &client
+        FactorySubcommand::Review(arg) => {
+            let response = client
                 .get_json::<Value>(&format!("/llm/factory/runs/{}/review", arg.id))
-                .await?,
-        )?,
+                .await?;
+            if arg.json {
+                print_json(&response)?;
+            } else {
+                print_text(&render_review(response_data(&response)))?;
+            }
+        }
     }
     Ok(())
 }
 
+fn render_runs_table(value: &Value) -> String {
+    let rows: Vec<Vec<String>> = value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|run| {
+            vec![
+                short_id(
+                    string_field(run, "id")
+                        .unwrap_or_else(|| string_field(run, "run_id").unwrap_or("unknown")),
+                ),
+                string_field(run, "status").unwrap_or("unknown").to_string(),
+                string_field(run, "current_stage")
+                    .unwrap_or("n/a")
+                    .to_string(),
+                string_field(run, "workflow_kind")
+                    .unwrap_or("n/a")
+                    .to_string(),
+                string_field(run, "source_brief")
+                    .or_else(|| string_field(run, "title"))
+                    .map(|value| truncate(value, 48))
+                    .unwrap_or_else(|| "n/a".to_string()),
+            ]
+        })
+        .collect();
+    if rows.is_empty() {
+        "No factory runs.".to_string()
+    } else {
+        render_table(&["ID", "STATUS", "STAGE", "WORKFLOW", "BRIEF"], rows)
+    }
+}
+
+fn render_submit_response(value: &Value) -> String {
+    let run_id = string_field(value, "run_id").unwrap_or("unknown");
+    let create = response_data(value.get("create").unwrap_or(&Value::Null));
+    let start = response_data(value.get("start").unwrap_or(&Value::Null));
+    let rows = vec![
+        vec![
+            short_id(run_id),
+            string_field(create, "status")
+                .unwrap_or("unknown")
+                .to_string(),
+            string_field(create, "current_stage")
+                .unwrap_or("n/a")
+                .to_string(),
+            "create".to_string(),
+        ],
+        vec![
+            short_id(run_id),
+            string_field(start, "status")
+                .unwrap_or("unknown")
+                .to_string(),
+            string_field(start, "current_stage")
+                .unwrap_or("n/a")
+                .to_string(),
+            "start".to_string(),
+        ],
+    ];
+    render_table(&["ID", "STATUS", "STAGE", "STEP"], rows)
+}
+
+fn render_start_response(value: &Value) -> String {
+    let rows = vec![vec![
+        short_id(string_field(value, "run_id").unwrap_or("unknown")),
+        string_field(value, "status")
+            .unwrap_or("unknown")
+            .to_string(),
+        bool_field(value, "completed").to_string(),
+        bool_field(value, "failed").to_string(),
+        value
+            .get("actions")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len)
+            .to_string(),
+    ]];
+    render_table(&["ID", "STATUS", "DONE", "FAILED", "ACTIONS"], rows)
+}
+
+fn render_cancel_response(value: &Value) -> String {
+    let rows = vec![vec![
+        short_id(
+            string_field(value, "run_id")
+                .unwrap_or_else(|| string_field(value, "id").unwrap_or("unknown")),
+        ),
+        string_field(value, "status")
+            .unwrap_or("cancelled")
+            .to_string(),
+        string_field(value, "reason")
+            .map(|value| truncate(value, 48))
+            .unwrap_or_else(|| "n/a".to_string()),
+    ]];
+    render_table(&["ID", "STATUS", "REASON"], rows)
+}
+
+fn render_status(status: &Value) -> String {
+    let rows = vec![vec![
+        short_id(string_field(status, "run_id").unwrap_or("unknown")),
+        string_field(status, "status")
+            .unwrap_or("unknown")
+            .to_string(),
+        string_field(status, "current_stage")
+            .unwrap_or("n/a")
+            .to_string(),
+        counts_summary(status.get("stage_counts")),
+        counts_summary(status.get("issue_counts")),
+        status
+            .get("blockers")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len)
+            .to_string(),
+        verification_label(status).to_string(),
+    ]];
+    let mut output = render_table(
+        &[
+            "ID",
+            "STATUS",
+            "STAGE",
+            "STAGES",
+            "ISSUES",
+            "BLOCKERS",
+            "VERIFICATION",
+        ],
+        rows,
+    );
+    append_list_section(&mut output, "Blockers", status.get("blockers"));
+    append_list_section(&mut output, "Next actions", status.get("next_actions"));
+    output
+}
+
+fn render_review(review: &Value) -> String {
+    let rows = vec![vec![
+        short_id(string_field(review, "run_id").unwrap_or("unknown")),
+        truncate(string_field(review, "plan_summary").unwrap_or("n/a"), 72),
+        review
+            .get("blockers")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len)
+            .to_string(),
+        review
+            .get("next_actions")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len)
+            .to_string(),
+    ]];
+    let mut output = render_table(&["ID", "SUMMARY", "BLOCKERS", "NEXT"], rows);
+    append_list_section(&mut output, "Stages", review.get("stage_summary"));
+    append_list_section(&mut output, "Issues", review.get("issue_summary"));
+    append_list_section(&mut output, "Gates", review.get("gate_summary"));
+    append_list_section(&mut output, "Evidence", review.get("evidence_summary"));
+    append_list_section(&mut output, "Blockers", review.get("blockers"));
+    append_list_section(&mut output, "Next actions", review.get("next_actions"));
+    append_list_section(&mut output, "Open risks", review.get("open_risks"));
+    output
+}
+
+fn render_table(headers: &[&str], rows: Vec<Vec<String>>) -> String {
+    let mut widths: Vec<usize> = headers.iter().map(|header| header.len()).collect();
+    for row in &rows {
+        for (index, cell) in row.iter().enumerate() {
+            if let Some(width) = widths.get_mut(index) {
+                *width = (*width).max(cell.len());
+            }
+        }
+    }
+
+    let mut output = String::new();
+    output.push_str(&render_table_row(
+        &headers
+            .iter()
+            .map(|value| value.to_string())
+            .collect::<Vec<_>>(),
+        &widths,
+    ));
+    output.push('\n');
+    output.push_str(
+        &widths
+            .iter()
+            .map(|width| "-".repeat(*width))
+            .collect::<Vec<_>>()
+            .join("  "),
+    );
+    for row in rows {
+        output.push('\n');
+        output.push_str(&render_table_row(&row, &widths));
+    }
+    output
+}
+
+fn render_table_row(row: &[String], widths: &[usize]) -> String {
+    row.iter()
+        .enumerate()
+        .map(|(index, cell)| format!("{cell:<width$}", width = widths[index]))
+        .collect::<Vec<_>>()
+        .join("  ")
+}
+
+fn append_list_section(output: &mut String, title: &str, value: Option<&Value>) {
+    let items: Vec<String> = value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item.as_str().map(str::to_string))
+        .collect();
+    if items.is_empty() {
+        return;
+    }
+    output.push_str("\n\n");
+    output.push_str(title);
+    output.push_str(":\n");
+    for item in items {
+        output.push_str("  - ");
+        output.push_str(&item);
+        output.push('\n');
+    }
+    if output.ends_with('\n') {
+        output.pop();
+    }
+}
+
 async fn submit_run(args: FactorySubmitCommand, client: &ApiClient) -> anyhow::Result<()> {
+    let json_output = args.json;
     let SubmittedFactoryRun {
         run_id,
         create_response,
         start_response,
     } = submit_factory_run(args, client).await?;
-    print_json(&json!({
+    let response = json!({
         "run_id": run_id,
         "create": create_response,
         "start": start_response,
-    }))
+    });
+    if json_output {
+        print_json(&response)
+    } else {
+        print_text(&render_submit_response(&response))
+    }
 }
 
 async fn run_factory(args: FactoryRunCommand, client: &ApiClient) -> anyhow::Result<()> {
-    let SubmittedFactoryRun { run_id, .. } = submit_factory_run(args.submit, client).await?;
-    print_text(&format!("Submitted factory run {run_id}."))?;
-    watch_factory_run(&run_id, args.wait, client).await
+    let json_output = args.submit.json;
+    let SubmittedFactoryRun {
+        run_id,
+        create_response,
+        start_response,
+    } = submit_factory_run(args.submit, client).await?;
+    if json_output {
+        print_json(&json!({
+            "run_id": run_id,
+            "create": create_response,
+            "start": start_response,
+        }))?;
+    } else {
+        print_text(&format!("Submitted factory run {run_id}."))?;
+    }
+    watch_factory_run(&run_id, args.wait, json_output, client).await
 }
 
 struct SubmittedFactoryRun {
@@ -85,22 +345,25 @@ async fn submit_factory_run(
 }
 
 async fn watch_run(args: FactoryWatchCommand, client: &ApiClient) -> anyhow::Result<()> {
-    watch_factory_run(&args.id, args.wait, client).await
+    watch_factory_run(&args.id, args.wait, args.json, client).await
 }
 
 async fn watch_factory_run(
     run_id: &str,
     wait: FactoryWaitOptions,
+    json_output: bool,
     client: &ApiClient,
 ) -> anyhow::Result<()> {
     if wait.interval == 0 {
         anyhow::bail!("factory watch --interval must be greater than zero");
     }
 
-    print_text(&format!(
-        "Watching {}. Press Ctrl-C to detach; the factory run will continue.",
-        run_id
-    ))?;
+    if !json_output {
+        print_text(&format!(
+            "Watching {}. Press Ctrl-C to detach; the factory run will continue.",
+            run_id
+        ))?;
+    }
 
     let started = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(wait.timeout);
@@ -116,7 +379,11 @@ async fn watch_factory_run(
             .get_json::<Value>(&format!("/llm/factory/runs/{run_id}/status"))
             .await?;
         let status = response_data(&response);
-        print_text(&watch_status_line(status))?;
+        if json_output {
+            print_json(&response)?;
+        } else {
+            print_text(&watch_status_line(status))?;
+        }
 
         let stop = watch_stop(status, wait.until);
         if stop.stop {
@@ -214,14 +481,7 @@ fn watch_status_line(status: &Value) -> String {
         .get("blockers")
         .and_then(Value::as_array)
         .map_or(0, Vec::len);
-    let verification = string_field(status, "latest_verification").unwrap_or_else(|| match status
-        .get("latest_verification_success")
-        .and_then(Value::as_bool)
-    {
-        Some(true) => "passed",
-        Some(false) => "failed",
-        None => "n/a",
-    });
+    let verification = verification_label(status);
     format!(
         "{} {run_id} {status_text} stage={stage} stages={} issues={} blockers={blockers} verification={verification}",
         chrono::Local::now().format("%H:%M:%S"),
@@ -324,6 +584,39 @@ fn string_field<'a>(value: &'a Value, field: &str) -> Option<&'a str> {
     value.get(field).and_then(Value::as_str)
 }
 
+fn bool_field(value: &Value, field: &str) -> bool {
+    value.get(field).and_then(Value::as_bool).unwrap_or(false)
+}
+
+fn verification_label(status: &Value) -> &str {
+    string_field(status, "latest_verification").unwrap_or_else(|| {
+        match status
+            .get("latest_verification_success")
+            .and_then(Value::as_bool)
+        {
+            Some(true) => "passed",
+            Some(false) => "failed",
+            None => "n/a",
+        }
+    })
+}
+
+fn short_id(value: &str) -> String {
+    if value.len() > 8 {
+        value.chars().take(8).collect()
+    } else {
+        value.to_string()
+    }
+}
+
+fn truncate(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        return value.to_string();
+    }
+    let keep = max_chars.saturating_sub(3);
+    format!("{}...", value.chars().take(keep).collect::<String>())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,6 +629,7 @@ mod tests {
             workflow: None,
             subject: None,
             title: None,
+            json: false,
         }
     }
 

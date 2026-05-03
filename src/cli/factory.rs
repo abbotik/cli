@@ -9,23 +9,41 @@ pub struct FactoryCommand {
 #[derive(Subcommand, Debug)]
 pub enum FactorySubcommand {
     /// List visible factory runs
-    List,
+    List(FactoryJsonOutput),
     /// Submit prompt text to Factory and wake the run
     #[command(visible_alias = "create")]
     Submit(FactorySubmitCommand),
     /// Submit prompt text, wake the run, and wait
     Run(FactoryRunCommand),
     /// Start or wake a factory run
-    Start(FactoryRunIdArg),
+    Start(FactoryRunOutputCommand),
     /// Read aggregate run status
-    Status(FactoryRunIdArg),
+    Status(FactoryRunOutputCommand),
     /// Cancel a factory run
     #[command(visible_alias = "stop")]
     Cancel(FactoryCancelCommand),
     /// Attach to a run until completion, failure, timeout, or attention
     Watch(FactoryWatchCommand),
     /// Read the latest review bundle
-    Review(FactoryRunIdArg),
+    Review(FactoryRunOutputCommand),
+}
+
+#[derive(Args, Debug)]
+pub struct FactoryJsonOutput {
+    /// Print raw JSON response
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct FactoryRunOutputCommand {
+    /// Factory run id
+    #[arg(value_name = "RUN")]
+    pub id: String,
+
+    /// Print raw JSON response
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Args, Debug)]
@@ -37,6 +55,10 @@ pub struct FactoryCancelCommand {
     /// Cancellation reason
     #[arg(long)]
     pub reason: Option<String>,
+
+    /// Print raw JSON response
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Args, Debug)]
@@ -64,6 +86,10 @@ pub struct FactorySubmitCommand {
     /// Optional run title
     #[arg(long)]
     pub title: Option<String>,
+
+    /// Print raw JSON response
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Args, Debug)]
@@ -82,7 +108,11 @@ pub struct FactoryWaitOptions {
     pub interval: u64,
 
     /// Stop waiting after this many seconds
-    #[arg(long = "wait-timeout", visible_alias = "timeout", default_value_t = 600)]
+    #[arg(
+        long = "wait-timeout",
+        visible_alias = "timeout",
+        default_value_t = 600
+    )]
     pub timeout: u64,
 
     /// Stop condition to wait for
@@ -107,4 +137,8 @@ pub struct FactoryWatchCommand {
 
     #[command(flatten)]
     pub wait: FactoryWaitOptions,
+
+    /// Print raw JSON status responses while watching
+    #[arg(long)]
+    pub json: bool,
 }
