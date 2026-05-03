@@ -1239,7 +1239,7 @@ fn parses_top_level_factory_commands() {
             FactorySubcommand::Run(args) => {
                 assert_eq!(args.submit.prompt_text.as_deref(), Some("ship it"));
                 assert_eq!(args.wait.interval, 5);
-                assert_eq!(args.wait.timeout, Some(30));
+                assert_eq!(args.wait.timeout, 30);
                 assert_eq!(args.wait.until, Some(FactoryWatchUntil::Attention));
             }
             other => panic!("expected factory run command, got {other:?}"),
@@ -1305,7 +1305,7 @@ fn parses_top_level_factory_commands() {
             FactorySubcommand::Watch(arg) => {
                 assert_eq!(arg.id, "run_123");
                 assert_eq!(arg.wait.interval, 5);
-                assert_eq!(arg.wait.timeout, Some(30));
+                assert_eq!(arg.wait.timeout, 30);
                 assert_eq!(arg.wait.until, Some(FactoryWatchUntil::Cancelled));
             }
             other => panic!("expected factory watch command, got {other:?}"),

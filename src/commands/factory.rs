@@ -103,15 +103,13 @@ async fn watch_factory_run(
     ))?;
 
     let started = std::time::Instant::now();
-    let timeout = wait.timeout.map(std::time::Duration::from_secs);
+    let timeout = std::time::Duration::from_secs(wait.timeout);
     loop {
-        if let Some(timeout) = timeout {
-            if started.elapsed() >= timeout {
-                anyhow::bail!(
-                    "factory watch timed out after {} seconds",
-                    timeout.as_secs()
-                );
-            }
+        if started.elapsed() >= timeout {
+            anyhow::bail!(
+                "factory watch timed out after {} seconds",
+                timeout.as_secs()
+            );
         }
 
         let response = client

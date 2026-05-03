@@ -81,9 +81,9 @@ pub struct FactoryWaitOptions {
     #[arg(long, default_value_t = 10)]
     pub interval: u64,
 
-    /// Stop watching after this many seconds
-    #[arg(long)]
-    pub timeout: Option<u64>,
+    /// Stop waiting after this many seconds
+    #[arg(long = "wait-timeout", visible_alias = "timeout", default_value_t = 600)]
+    pub timeout: u64,
 
     /// Stop condition to wait for
     #[arg(long, value_enum)]
