@@ -11,6 +11,8 @@ pub(super) struct TokenClaims {
     pub key_id: Option<String>,
     #[serde(default)]
     pub key_fingerprint: Option<String>,
+    #[serde(default)]
+    pub exp: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,6 +78,10 @@ pub(super) fn current_machine_token_claims(config: &AbbotikConfig) -> TokenClaim
         .and_then(|token| decode_token_claims(token).ok())
         .filter(|claims| claims.auth_type.as_deref() == Some("public_key"))
         .unwrap_or_default()
+}
+
+pub(super) fn token_expires_within(claims: &TokenClaims, now: i64, skew_seconds: i64) -> bool {
+    claims.exp.is_some_and(|exp| exp <= now + skew_seconds)
 }
 
 pub(super) fn resolve_machine_refresh_context(
@@ -237,6 +243,7 @@ mod tests {
                 key_id: Some("key-token".to_string()),
                 key_fingerprint: None,
                 auth_type: Some("public_key".to_string()),
+                exp: None,
             },
         )
         .expect("context should resolve");
@@ -266,6 +273,7 @@ mod tests {
                 key_id: Some("token-key".to_string()),
                 key_fingerprint: Some("token-fp".to_string()),
                 auth_type: Some("public_key".to_string()),
+                exp: None,
             },
         )
         .expect("context should resolve");
@@ -394,5 +402,17 @@ mod tests {
             current_machine_token_claims(&config),
             TokenClaims::default()
         );
+    }
+
+    #[test]
+    fn token_expires_within_uses_epoch_expiry_claim() {
+        let claims = TokenClaims {
+            exp: Some(1_100),
+            ..Default::default()
+        };
+
+        assert!(token_expires_within(&claims, 1_000, 100));
+        assert!(!token_expires_within(&claims, 1_000, 99));
+        assert!(!token_expires_within(&TokenClaims::default(), 1_000, 100));
     }
 }

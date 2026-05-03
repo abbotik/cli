@@ -1,9 +1,12 @@
 use super::auth_support::{
     current_machine_token_claims, decode_token_claims, machine_key_paths,
     resolve_machine_connect_context, resolve_machine_refresh_context, resolve_saved_machine_paths,
-    update_machine_auth_from_provision, update_machine_auth_from_verify_response, TokenClaims,
+    token_expires_within, update_machine_auth_from_provision,
+    update_machine_auth_from_verify_response, TokenClaims,
 };
 use super::*;
+
+const AUTO_REFRESH_SKEW_SECONDS: i64 = 60;
 
 fn sign_machine_nonce(private_key_path: &str, nonce: &str) -> anyhow::Result<String> {
     let pem = stdfs::read_to_string(private_key_path)?;
@@ -83,6 +86,41 @@ async fn refresh_machine_auth(
         "challenge": challenge,
         "verify": verify,
     }))
+}
+
+pub(super) async fn refresh_saved_token_if_needed(
+    client: &ApiClient,
+    config: &mut AbbotikConfig,
+    save_path: Option<&Path>,
+) -> anyhow::Result<bool> {
+    let Some(token) = config.token().map(ToOwned::to_owned) else {
+        return Ok(false);
+    };
+    let Ok(claims) = decode_token_claims(&token) else {
+        return Ok(false);
+    };
+    let now = chrono::Utc::now().timestamp();
+    if !token_expires_within(&claims, now, AUTO_REFRESH_SKEW_SECONDS) {
+        return Ok(false);
+    }
+
+    if claims.auth_type.as_deref() == Some("public_key") {
+        refresh_machine_auth(client, config, claims, save_path).await?;
+        return Ok(true);
+    }
+
+    if claims.exp.is_some_and(|exp| exp <= now) {
+        return Ok(false);
+    }
+
+    let response = client.auth_refresh(&RefreshRequest { token }).await?;
+    if let Some(next_token) = response.data.as_ref().map(|data| data.token.clone()) {
+        config.set_token(next_token);
+        save_config(config, save_path)?;
+        return Ok(true);
+    }
+
+    Ok(false)
 }
 
 fn save_machine_verify_result(
