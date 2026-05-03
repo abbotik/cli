@@ -21,8 +21,8 @@ use ratatui::{
 
 use super::{
     api::{
-        FactoryCheckpoint, FactoryDetail, FactoryRun, RoomHistory, RoomRecord, SendMessageRequest,
-        TuiApi,
+        FactoryCheckpoint, FactoryDetail, FactoryRun, FactoryStatus, RoomHistory, RoomRecord,
+        SendMessageRequest, TuiApi,
     },
     layout,
     state::{AppState, FactorySubview, Focus, Selection, SidebarEntry},
@@ -585,16 +585,8 @@ impl TuiApp {
             Line::from(vec![
                 Span::styled("verification ", Theme::dim()),
                 Span::styled(
-                    match detail.status.latest_verification_success {
-                        Some(true) => "✓ pass",
-                        Some(false) => "✗ fail",
-                        None => "⏱ pending",
-                    },
-                    match detail.status.latest_verification_success {
-                        Some(true) => Theme::success(),
-                        Some(false) => Theme::error(),
-                        None => Theme::warning(),
-                    },
+                    verification_label(&detail.status),
+                    verification_style(&detail.status),
                 ),
             ]),
             Line::from(vec![
@@ -1144,6 +1136,34 @@ fn status_style(status: &str) -> Style {
         "failed" | "error" | "blocked" => Theme::error(),
         "planning" | "verifying" | "gated" | "ready" | "running" | "pending" => Theme::warning(),
         _ => Theme::text(),
+    }
+}
+
+fn verification_label(status: &FactoryStatus) -> &'static str {
+    match status.latest_verification.as_deref() {
+        Some("passed") => "✓ pass",
+        Some("failed") => "✗ fail",
+        Some("skipped") => "↷ skipped",
+        Some("pending") | None => match status.latest_verification_success {
+            Some(true) => "✓ pass",
+            Some(false) => "✗ fail",
+            None => "⏱ pending",
+        },
+        Some(_) => "⏱ pending",
+    }
+}
+
+fn verification_style(status: &FactoryStatus) -> Style {
+    match status.latest_verification.as_deref() {
+        Some("passed") => Theme::success(),
+        Some("failed") => Theme::error(),
+        Some("skipped") => Theme::dim(),
+        Some("pending") | None => match status.latest_verification_success {
+            Some(true) => Theme::success(),
+            Some(false) => Theme::error(),
+            None => Theme::warning(),
+        },
+        Some(_) => Theme::warning(),
     }
 }
 

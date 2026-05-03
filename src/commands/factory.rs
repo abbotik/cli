@@ -216,14 +216,14 @@ fn watch_status_line(status: &Value) -> String {
         .get("blockers")
         .and_then(Value::as_array)
         .map_or(0, Vec::len);
-    let verification = match status
+    let verification = string_field(status, "latest_verification").unwrap_or_else(|| match status
         .get("latest_verification_success")
         .and_then(Value::as_bool)
     {
         Some(true) => "passed",
         Some(false) => "failed",
         None => "n/a",
-    };
+    });
     format!(
         "{} {run_id} {status_text} stage={stage} stages={} issues={} blockers={blockers} verification={verification}",
         chrono::Local::now().format("%H:%M:%S"),
@@ -385,5 +385,21 @@ mod tests {
         assert!(error
             .to_string()
             .contains("exactly one of PROMPT, --prompt, or --prompt-file"));
+    }
+
+    #[test]
+    fn watch_status_line_prefers_latest_verification_status() {
+        let line = watch_status_line(&json!({
+            "run_id": "run-1",
+            "status": "gated",
+            "current_stage": "gated",
+            "stage_counts": { "passed": 1 },
+            "issue_counts": { "passed": 1 },
+            "latest_verification": "skipped",
+            "latest_verification_success": true,
+            "blockers": [],
+        }));
+
+        assert!(line.contains("verification=skipped"));
     }
 }

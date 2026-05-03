@@ -88,6 +88,8 @@ pub struct FactoryStatus {
     #[serde(default)]
     pub latest_checkpoint_id: Option<String>,
     #[serde(default)]
+    pub latest_verification: Option<String>,
+    #[serde(default)]
     pub latest_verification_success: Option<bool>,
     #[serde(default)]
     pub latest_verification_artifact_id: Option<String>,
