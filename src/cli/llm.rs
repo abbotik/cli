@@ -58,7 +58,7 @@ pub enum LlmRoomSubcommand {
     /// Interrupt an in-flight turn
     Interrupt(RoomIdArg),
     /// Release a room explicitly
-    Release(RoomIdArg),
+    Release(LlmRoomReleaseCommand),
 }
 
 #[derive(Args, Debug, Default)]
@@ -120,6 +120,21 @@ pub struct LlmRoomRunCommand {
     /// Poll interval while waiting
     #[arg(long = "poll-seconds", default_value_t = 1)]
     pub poll_seconds: u64,
+}
+
+#[derive(Args, Debug)]
+pub struct LlmRoomReleaseCommand {
+    /// Room id, when not using --name or --id
+    #[arg(value_name = "ID")]
+    pub positional_id: Option<String>,
+
+    /// Stable CLI room name
+    #[arg(long)]
+    pub name: Option<String>,
+
+    /// Room id, when not using positional ID
+    #[arg(long)]
+    pub id: Option<String>,
 }
 
 #[derive(Args, Debug)]

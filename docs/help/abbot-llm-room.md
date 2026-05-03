@@ -11,6 +11,7 @@ Common uses:
 - `abbot llm room create --name math --model openai/gpt-5.4 --provider openrouter --purpose "math scratch"`
 - `abbot llm room run --name math "Calculate 42 * 19" --stream`
 - `abbot llm room run --name math "Now do 42 / 7"`
+- `abbot llm room release --name math`
 - `abbot llm room create < body.json`
 - `abbot llm room message room_123 < body.json`
 - `abbot llm room events room_123`

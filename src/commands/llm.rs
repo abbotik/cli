@@ -76,14 +76,7 @@ async fn llm_room(command: LlmRoomCommand, client: &ApiClient) -> anyhow::Result
                 )
                 .await?,
         )?,
-        LlmRoomSubcommand::Release(arg) => print_json(
-            &client
-                .post_json::<_, Value>(
-                    &format!("/llm/room/{}/release", arg.id),
-                    &read_json_body_or_default(json!({}))?,
-                )
-                .await?,
-        )?,
+        LlmRoomSubcommand::Release(args) => release_room(args, client).await?,
     }
     Ok(())
 }
@@ -212,6 +205,25 @@ async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow:
     Ok(())
 }
 
+async fn release_room(args: LlmRoomReleaseCommand, client: &ApiClient) -> anyhow::Result<()> {
+    let room_id = resolve_release_room_id(
+        client,
+        args.name.as_deref(),
+        args.id.as_deref(),
+        args.positional_id.as_deref(),
+    )
+    .await?;
+    print_json(
+        &client
+            .post_json::<_, Value>(
+                &format!("/llm/room/{room_id}/release"),
+                &read_json_body_or_default(json!({}))?,
+            )
+            .await?,
+    )?;
+    Ok(())
+}
+
 async fn resolve_room_id(
     client: &ApiClient,
     name: Option<&str>,
@@ -225,6 +237,29 @@ async fn resolve_room_id(
         (None, Some(id)) => Ok(id.to_string()),
         (None, None) => anyhow::bail!("room run requires --name <name> or --id <room-id>"),
     }
+}
+
+async fn resolve_release_room_id(
+    client: &ApiClient,
+    name: Option<&str>,
+    id: Option<&str>,
+    positional_id: Option<&str>,
+) -> anyhow::Result<String> {
+    let specified = name.is_some() as u8 + id.is_some() as u8 + positional_id.is_some() as u8;
+    match specified {
+        0 => anyhow::bail!("room release requires --name <name> or <id>"),
+        1 => {}
+        _ => anyhow::bail!("use only one of --name, --id, or positional ID"),
+    }
+
+    if let Some(id) = id.or(positional_id) {
+        return Ok(id.to_string());
+    }
+
+    let name = name.expect("specified name");
+    find_room_by_name_for_release(client, name)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("no releasable room named `{name}`"))
 }
 
 async fn find_room_by_name(client: &ApiClient, name: &str) -> anyhow::Result<Option<String>> {
@@ -245,6 +280,35 @@ async fn find_room_by_name(client: &ApiClient, name: &str) -> anyhow::Result<Opt
         })
         .and_then(|room| room.get("id").and_then(Value::as_str))
         .map(ToOwned::to_owned))
+}
+
+async fn find_room_by_name_for_release(
+    client: &ApiClient,
+    name: &str,
+) -> anyhow::Result<Option<String>> {
+    let response = client.get_json::<Value>("/llm/room").await?;
+    let rooms = response
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow::anyhow!("room list response did not include data array"))?;
+
+    let mut failed_match = None;
+    for room in rooms {
+        if room.pointer("/metadata/name").and_then(Value::as_str) != Some(name) {
+            continue;
+        }
+
+        let Some(id) = room.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        match room.get("status").and_then(Value::as_str) {
+            Some("released" | "releasing") => {}
+            Some("failed") if failed_match.is_none() => failed_match = Some(id.to_string()),
+            _ => return Ok(Some(id.to_string())),
+        }
+    }
+
+    Ok(failed_match)
 }
 
 async fn wait_for_room_output(
