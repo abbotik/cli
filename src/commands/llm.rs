@@ -167,14 +167,14 @@ async fn ensure_room_name_available(client: &ApiClient, name: &str) -> anyhow::R
 
 async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow::Result<()> {
     let room_id = resolve_room_id(client, args.name.as_deref(), args.id.as_deref()).await?;
-    let mut seen_event_ids = if args.stream {
-        collect_room_event_ids(
+    let mut stream_state = if args.stream {
+        RoomStreamState::from_history(
             &client
                 .get_json::<Value>(&format!("/llm/room/{room_id}/history"))
                 .await?,
         )
     } else {
-        Vec::new()
+        RoomStreamState::default()
     };
     let response = client
         .post_json::<_, Value>(
@@ -199,7 +199,7 @@ async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow:
         args.timeout_seconds,
         args.poll_seconds,
         args.stream,
-        &mut seen_event_ids,
+        &mut stream_state,
     )
     .await?;
     println!("{answer}");
@@ -248,7 +248,7 @@ async fn wait_for_room_output(
     timeout_seconds: u64,
     poll_seconds: u64,
     stream: bool,
-    seen_event_ids: &mut Vec<String>,
+    stream_state: &mut RoomStreamState,
 ) -> anyhow::Result<String> {
     let timeout = std::time::Duration::from_secs(timeout_seconds);
     let poll = std::time::Duration::from_secs(poll_seconds.max(1));
@@ -260,7 +260,7 @@ async fn wait_for_room_output(
             .await?;
 
         if stream {
-            print_new_room_events(&history, seen_event_ids);
+            print_new_room_events(&history, stream_state);
         }
 
         if room_failed(&history) {
@@ -285,21 +285,35 @@ async fn wait_for_room_output(
     }
 }
 
-fn collect_room_event_ids(history: &Value) -> Vec<String> {
-    history
-        .pointer("/data/events")
-        .and_then(Value::as_array)
-        .map(|events| {
-            events
-                .iter()
-                .filter_map(|event| event.get("id").and_then(Value::as_str))
-                .map(ToOwned::to_owned)
-                .collect()
-        })
-        .unwrap_or_default()
+#[derive(Default)]
+struct RoomStreamState {
+    seen_event_ids: Vec<String>,
+    assistant_text: String,
+    reported_text_chars: usize,
 }
 
-fn print_new_room_events(history: &Value, seen_event_ids: &mut Vec<String>) {
+impl RoomStreamState {
+    fn from_history(history: &Value) -> Self {
+        let seen_event_ids = history
+            .pointer("/data/events")
+            .and_then(Value::as_array)
+            .map(|events| {
+                events
+                    .iter()
+                    .filter_map(|event| event.get("id").and_then(Value::as_str))
+                    .map(ToOwned::to_owned)
+                    .collect()
+            })
+            .unwrap_or_default();
+        Self {
+            seen_event_ids,
+            assistant_text: String::new(),
+            reported_text_chars: 0,
+        }
+    }
+}
+
+fn print_new_room_events(history: &Value, stream_state: &mut RoomStreamState) {
     let Some(events) = history.pointer("/data/events").and_then(Value::as_array) else {
         return;
     };
@@ -308,16 +322,18 @@ fn print_new_room_events(history: &Value, seen_event_ids: &mut Vec<String>) {
         let Some(id) = event.get("id").and_then(Value::as_str) else {
             continue;
         };
-        if seen_event_ids.iter().any(|seen| seen == id) {
+        if stream_state.seen_event_ids.iter().any(|seen| seen == id) {
             continue;
         }
-        seen_event_ids.push(id.to_string());
+        stream_state.seen_event_ids.push(id.to_string());
 
-        eprintln!("{}", format_room_event(event));
+        if let Some(line) = format_room_event(event, stream_state) {
+            eprintln!("{line}");
+        }
     }
 }
 
-fn format_room_event(event: &Value) -> String {
+fn format_room_event(event: &Value, stream_state: &mut RoomStreamState) -> Option<String> {
     let event_type = event
         .get("event_type")
         .and_then(Value::as_str)
@@ -342,14 +358,14 @@ fn format_room_event(event: &Value) -> String {
         "agent:output" => payload
             .get("text")
             .and_then(Value::as_str)
-            .map(|text| format!("text=\"{}\"", preview_text(text, 120))),
+            .map(|text| format!("chars={}", text.chars().count())),
         "pi:message_start" | "pi:message_update" | "pi:message_end" => {
-            format_pi_message_detail(event_type, payload)
+            format_pi_message_detail(event_type, payload, stream_state)
         }
         "pi:turn_end" => format_pi_turn_end_detail(payload),
         "pi:agent_end" => payload
             .get("terminal_message")
-            .and_then(format_pi_message_summary),
+            .and_then(format_pi_terminal_summary),
         "error" => payload
             .get("message")
             .and_then(Value::as_str)
@@ -358,8 +374,10 @@ fn format_room_event(event: &Value) -> String {
     };
 
     match detail {
-        Some(detail) if !detail.is_empty() => format!("{event_type} {detail}"),
-        _ => event_type.to_string(),
+        Some(detail) if !detail.is_empty() => Some(format!("{event_type} {detail}")),
+        Some(_) => Some(event_type.to_string()),
+        None if event_type == "pi:message_update" => None,
+        None => Some(event_type.to_string()),
     }
 }
 
@@ -377,14 +395,28 @@ fn format_turn_detail(payload: &Value, agent: Option<&str>) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(" "))
 }
 
-fn format_pi_message_detail(event_type: &str, payload: &Value) -> Option<String> {
+fn format_pi_message_detail(
+    event_type: &str,
+    payload: &Value,
+    stream_state: &mut RoomStreamState,
+) -> Option<String> {
     let message = payload.get("partial").or_else(|| payload.get("message"))?;
     let mut parts = Vec::new();
 
     if let Some(update_type) = payload.get("update_type").and_then(Value::as_str) {
         parts.push(update_type.to_string());
     }
-    if let Some(summary) = format_pi_message_summary(message) {
+    if event_type == "pi:message_update" {
+        if let Some(summary) = assistant_text_progress(payload, message, stream_state) {
+            parts.push(summary);
+        } else {
+            return None;
+        }
+    } else if event_type == "pi:message_end" {
+        if let Some(summary) = format_pi_terminal_summary(message) {
+            parts.push(summary);
+        }
+    } else if let Some(summary) = format_pi_message_summary(message) {
         parts.push(summary);
     }
 
@@ -400,7 +432,7 @@ fn format_pi_message_detail(event_type: &str, payload: &Value) -> Option<String>
 fn format_pi_turn_end_detail(payload: &Value) -> Option<String> {
     let mut parts = Vec::new();
     if let Some(message) = payload.get("message") {
-        if let Some(summary) = format_pi_message_summary(message) {
+        if let Some(summary) = format_pi_terminal_summary(message) {
             parts.push(summary);
         }
         if let Some(usage) = message.get("usage").and_then(format_usage_summary) {
@@ -415,6 +447,41 @@ fn format_pi_turn_end_detail(payload: &Value) -> Option<String> {
         parts.push(format!("tools={tool_results}/{tool_errors}"));
     }
     (!parts.is_empty()).then(|| parts.join(" "))
+}
+
+fn assistant_text_progress(
+    payload: &Value,
+    message: &Value,
+    stream_state: &mut RoomStreamState,
+) -> Option<String> {
+    if message.get("role").and_then(Value::as_str) != Some("assistant") {
+        return None;
+    }
+    let text = message.get("text").and_then(Value::as_str)?;
+    stream_state.assistant_text = text.to_string();
+
+    let chars = text.chars().count();
+    let update_type = payload
+        .get("update_type")
+        .and_then(Value::as_str)
+        .unwrap_or("text");
+    let done = update_type == "text_end";
+    let should_report =
+        done || chars == 0 || chars.saturating_sub(stream_state.reported_text_chars) >= 160;
+
+    if !should_report {
+        return None;
+    }
+
+    stream_state.reported_text_chars = chars;
+    if done {
+        return Some(format!("text_done chars={chars}"));
+    }
+
+    Some(format!(
+        "text chars={chars} tail=\"{}\"",
+        preview_tail_text(text, 120)
+    ))
 }
 
 fn format_pi_message_summary(message: &Value) -> Option<String> {
@@ -448,6 +515,32 @@ fn format_pi_message_summary(message: &Value) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(" "))
 }
 
+fn format_pi_terminal_summary(message: &Value) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(role) = message.get("role").and_then(Value::as_str) {
+        parts.push(format!("role={role}"));
+    }
+    match (
+        message.get("provider").and_then(Value::as_str),
+        message.get("model").and_then(Value::as_str),
+    ) {
+        (Some(provider), Some(model)) => parts.push(format!("model={provider}/{model}")),
+        (Some(provider), None) => parts.push(format!("provider={provider}")),
+        (None, Some(model)) => parts.push(format!("model={model}")),
+        (None, None) => {}
+    }
+    if let Some(stop) = message.get("stop_reason").and_then(Value::as_str) {
+        parts.push(format!("stop={stop}"));
+    }
+    if let Some(text) = message.get("text").and_then(Value::as_str) {
+        parts.push(format!("chars={}", text.chars().count()));
+    }
+    if let Some(error) = message.get("error_message").and_then(Value::as_str) {
+        parts.push(format!("error=\"{}\"", preview_text(error, 160)));
+    }
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
 fn format_usage_summary(usage: &Value) -> Option<String> {
     let total = usage.get("totalTokens").and_then(Value::as_u64)?;
     let input = usage.get("input").and_then(Value::as_u64).unwrap_or(0);
@@ -476,6 +569,22 @@ fn preview_text(text: &str, max_chars: usize) -> String {
         .collect::<String>();
     preview.push('…');
     preview
+}
+
+fn preview_tail_text(text: &str, max_chars: usize) -> String {
+    let compact = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() <= max_chars {
+        return compact;
+    }
+    let tail = compact
+        .chars()
+        .rev()
+        .take(max_chars.saturating_sub(1))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<String>();
+    format!("…{tail}")
 }
 
 fn room_failed(history: &Value) -> bool {
