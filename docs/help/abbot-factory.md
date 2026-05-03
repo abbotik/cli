@@ -5,7 +5,9 @@ High-level durable factory workflow operations.
 Use this branch for operator workflows:
 
 - `abbot factory submit --prompt "create me a marketing plan"`
-- `abbot factory submit --plan ./plan.md --workflow software.delivery --subject repo:abbotik/api`
+- `abbot factory submit "create me a marketing plan"`
+- `abbot factory submit --prompt-file ./plan.md --workflow software.delivery --subject repo:abbotik/api`
+- `abbot factory submit --prompt-file -`
 - `abbot factory status <run_id>`
 - `abbot factory watch <run_id>`
 - `abbot factory watch <run_id> --timeout 1800 --until completed`
@@ -13,6 +15,8 @@ Use this branch for operator workflows:
 
 `abbot factory watch` attaches to a run and may block for minutes or hours.
 Press Ctrl-C to detach; the factory run continues on the server.
+
+`--prompt-file -` reads prompt text from stdin.
 
 `abbot factory create` remains accepted as a compatibility alias for
 `abbot factory submit`.

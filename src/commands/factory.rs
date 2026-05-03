@@ -82,25 +82,30 @@ async fn watch_run(args: FactoryWatchCommand, client: &ApiClient) -> anyhow::Res
 }
 
 fn create_body(args: FactorySubmitCommand) -> anyhow::Result<Value> {
-    let (kind, format, content) = match (args.prompt, args.plan) {
-        (Some(prompt), None) => ("prompt", "text", prompt),
-        (None, Some(path)) => {
-            let content = stdfs::read_to_string(&path).map_err(|error| {
-                anyhow::anyhow!("failed to read plan {}: {error}", path.display())
-            })?;
-            let format = if path.extension().and_then(|value| value.to_str()) == Some("md") {
+    let (format, content) = match (args.prompt_text, args.prompt, args.prompt_file) {
+        (Some(prompt), None, None) | (None, Some(prompt), None) => ("text", prompt),
+        (None, None, Some(path)) => {
+            let content = read_prompt_file(&path)?;
+            let format = if path != Path::new("-")
+                && path.extension().and_then(|value| value.to_str()) == Some("md")
+            {
                 "markdown"
             } else {
                 "text"
             };
-            ("plan", format, content)
+            (format, content)
         }
-        _ => anyhow::bail!("factory submit requires exactly one of --prompt or --plan"),
+        _ => anyhow::bail!(
+            "factory submit requires exactly one of PROMPT, --prompt, or --prompt-file"
+        ),
     };
+    if content.trim().is_empty() {
+        anyhow::bail!("factory submit prompt must not be empty");
+    }
 
     let mut body = json!({
         "source": {
-            "kind": kind,
+            "kind": "prompt",
             "format": format,
             "content": content,
         },
@@ -123,6 +128,19 @@ fn create_body(args: FactorySubmitCommand) -> anyhow::Result<Value> {
     }
 
     Ok(body)
+}
+
+fn read_prompt_file(path: &Path) -> anyhow::Result<String> {
+    if path == Path::new("-") {
+        let content = read_stdin_or_empty()?;
+        if content.trim().is_empty() {
+            anyhow::bail!("--prompt-file - did not receive prompt text on stdin");
+        }
+        return Ok(content);
+    }
+
+    stdfs::read_to_string(path)
+        .map_err(|error| anyhow::anyhow!("failed to read prompt file {}: {error}", path.display()))
 }
 
 fn extract_run_id(response: &Value) -> Option<String> {
@@ -251,4 +269,66 @@ fn has_attention_gate(status: &Value) -> bool {
 
 fn string_field<'a>(value: &'a Value, field: &str) -> Option<&'a str> {
     value.get(field).and_then(Value::as_str)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn submit_args() -> FactorySubmitCommand {
+        FactorySubmitCommand {
+            prompt_text: None,
+            prompt: None,
+            prompt_file: None,
+            workflow: None,
+            subject: None,
+            title: None,
+        }
+    }
+
+    #[test]
+    fn create_body_accepts_positional_prompt() {
+        let mut args = submit_args();
+        args.prompt_text = Some("ship it".to_string());
+
+        let body = create_body(args).expect("body");
+
+        assert_eq!(body.pointer("/source/kind"), Some(&json!("prompt")));
+        assert_eq!(body.pointer("/source/format"), Some(&json!("text")));
+        assert_eq!(body.pointer("/source/content"), Some(&json!("ship it")));
+    }
+
+    #[test]
+    fn create_body_reads_markdown_prompt_file_as_prompt() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "abbot-factory-prompt-{}-{unique}.md",
+            std::process::id()
+        ));
+        stdfs::write(&path, "# Plan\n\nShip it.\n").expect("write prompt file");
+
+        let mut args = submit_args();
+        args.prompt_file = Some(path.clone());
+        let body = create_body(args).expect("body");
+        let _ = stdfs::remove_file(&path);
+
+        assert_eq!(body.pointer("/source/kind"), Some(&json!("prompt")));
+        assert_eq!(body.pointer("/source/format"), Some(&json!("markdown")));
+        assert_eq!(
+            body.pointer("/source/content"),
+            Some(&json!("# Plan\n\nShip it.\n"))
+        );
+    }
+
+    #[test]
+    fn create_body_rejects_missing_prompt_input() {
+        let error = create_body(submit_args()).expect_err("missing prompt should fail");
+
+        assert!(error
+            .to_string()
+            .contains("exactly one of PROMPT, --prompt, or --prompt-file"));
+    }
 }

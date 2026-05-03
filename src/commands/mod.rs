@@ -52,7 +52,7 @@ mod user;
 
 use self::io::{
     read_json_body_or_default, read_json_source, read_json_source_or_default, read_secret_source,
-    read_secret_source_option,
+    read_secret_source_option, read_stdin_or_empty,
 };
 use self::shared::vec_or_none;
 

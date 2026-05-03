@@ -1129,7 +1129,9 @@ fn parses_top_level_factory_commands() {
     match submit.command {
         Command::Factory(command) => match command.command {
             FactorySubcommand::Submit(args) => {
+                assert_eq!(args.prompt_text.as_deref(), None);
                 assert_eq!(args.prompt.as_deref(), Some("ship it"));
+                assert_eq!(args.prompt_file.as_deref(), None);
                 assert_eq!(args.workflow.as_deref(), Some("software.delivery"));
                 assert_eq!(args.subject.as_deref(), Some("repo:abbotik/api"));
             }
@@ -1144,6 +1146,43 @@ fn parses_top_level_factory_commands() {
         Command::Factory(command) => match command.command {
             FactorySubcommand::Submit(args) => assert_eq!(args.prompt.as_deref(), Some("ship it")),
             other => panic!("expected factory submit command from create alias, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
+    let positional_prompt = Cli::try_parse_from(["abbot", "factory", "submit", "ship it"])
+        .expect("factory submit positional prompt should parse");
+    match positional_prompt.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Submit(args) => {
+                assert_eq!(args.prompt_text.as_deref(), Some("ship it"));
+                assert_eq!(args.prompt.as_deref(), None);
+                assert_eq!(args.prompt_file.as_deref(), None);
+            }
+            other => panic!("expected factory submit command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
+    let prompt_file = Cli::try_parse_from([
+        "abbot",
+        "factory",
+        "submit",
+        "--prompt-file",
+        "-",
+        "--title",
+        "stdin plan",
+    ])
+    .expect("factory submit --prompt-file - should parse");
+    match prompt_file.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Submit(args) => {
+                assert_eq!(args.prompt_text.as_deref(), None);
+                assert_eq!(args.prompt.as_deref(), None);
+                assert_eq!(args.prompt_file.as_deref(), Some(std::path::Path::new("-")));
+                assert_eq!(args.title.as_deref(), Some("stdin plan"));
+            }
+            other => panic!("expected factory submit command, got {other:?}"),
         },
         other => panic!("expected factory command, got {other:?}"),
     }

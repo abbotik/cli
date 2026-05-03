@@ -8,7 +8,7 @@ pub struct FactoryCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum FactorySubcommand {
-    /// Submit a prompt or plan to Factory and wake the run
+    /// Submit prompt text to Factory and wake the run
     #[command(visible_alias = "create")]
     Submit(FactorySubmitCommand),
     /// Start or wake a factory run
@@ -24,12 +24,16 @@ pub enum FactorySubcommand {
 #[derive(Args, Debug)]
 pub struct FactorySubmitCommand {
     /// Prompt text to compile into a factory run
-    #[arg(long, conflicts_with = "plan")]
+    #[arg(value_name = "PROMPT", conflicts_with_all = ["prompt", "prompt_file"])]
+    pub prompt_text: Option<String>,
+
+    /// Prompt text to compile into a factory run
+    #[arg(long = "prompt", value_name = "PROMPT", conflicts_with_all = ["prompt_text", "prompt_file"])]
     pub prompt: Option<String>,
 
-    /// Markdown or text plan file to compile into a factory run
-    #[arg(long, value_name = "PATH", conflicts_with = "prompt")]
-    pub plan: Option<std::path::PathBuf>,
+    /// Read prompt text from PATH, or stdin with -
+    #[arg(long = "prompt-file", value_name = "PATH", conflicts_with_all = ["prompt_text", "prompt"])]
+    pub prompt_file: Option<std::path::PathBuf>,
 
     /// Workflow kind, for example software.delivery
     #[arg(long)]
