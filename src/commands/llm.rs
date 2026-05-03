@@ -167,6 +167,15 @@ async fn ensure_room_name_available(client: &ApiClient, name: &str) -> anyhow::R
 
 async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow::Result<()> {
     let room_id = resolve_room_id(client, args.name.as_deref(), args.id.as_deref()).await?;
+    let mut seen_event_ids = if args.stream {
+        collect_room_event_ids(
+            &client
+                .get_json::<Value>(&format!("/llm/room/{room_id}/history"))
+                .await?,
+        )
+    } else {
+        Vec::new()
+    };
     let response = client
         .post_json::<_, Value>(
             &format!("/llm/room/{room_id}/messages"),
@@ -190,6 +199,7 @@ async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow:
         args.timeout_seconds,
         args.poll_seconds,
         args.stream,
+        &mut seen_event_ids,
     )
     .await?;
     println!("{answer}");
@@ -238,11 +248,11 @@ async fn wait_for_room_output(
     timeout_seconds: u64,
     poll_seconds: u64,
     stream: bool,
+    seen_event_ids: &mut Vec<String>,
 ) -> anyhow::Result<String> {
     let timeout = std::time::Duration::from_secs(timeout_seconds);
     let poll = std::time::Duration::from_secs(poll_seconds.max(1));
     let started = std::time::Instant::now();
-    let mut seen_event_ids: Vec<String> = Vec::new();
 
     loop {
         let history = client
@@ -250,7 +260,7 @@ async fn wait_for_room_output(
             .await?;
 
         if stream {
-            print_new_room_events(&history, &mut seen_event_ids);
+            print_new_room_events(&history, seen_event_ids);
         }
 
         if room_failed(&history) {
@@ -275,6 +285,20 @@ async fn wait_for_room_output(
     }
 }
 
+fn collect_room_event_ids(history: &Value) -> Vec<String> {
+    history
+        .pointer("/data/events")
+        .and_then(Value::as_array)
+        .map(|events| {
+            events
+                .iter()
+                .filter_map(|event| event.get("id").and_then(Value::as_str))
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn print_new_room_events(history: &Value, seen_event_ids: &mut Vec<String>) {
     let Some(events) = history.pointer("/data/events").and_then(Value::as_array) else {
         return;
@@ -289,10 +313,169 @@ fn print_new_room_events(history: &Value, seen_event_ids: &mut Vec<String>) {
         }
         seen_event_ids.push(id.to_string());
 
-        if let Some(event_type) = event.get("event_type").and_then(Value::as_str) {
-            eprintln!("{event_type}");
+        eprintln!("{}", format_room_event(event));
+    }
+}
+
+fn format_room_event(event: &Value) -> String {
+    let event_type = event
+        .get("event_type")
+        .and_then(Value::as_str)
+        .unwrap_or("event");
+    let payload = event.get("payload").unwrap_or(&Value::Null);
+    let agent = event
+        .get("agent_key")
+        .and_then(Value::as_str)
+        .or_else(|| payload.get("agent_id").and_then(Value::as_str));
+
+    let detail = match event_type {
+        "room:rented" => agent.map(|agent| format!("agent={agent}")),
+        "room:active" => payload
+            .get("trigger_message_id")
+            .and_then(Value::as_str)
+            .map(|id| format!("trigger={}", short_id(id))),
+        "room:idle" => payload
+            .get("reason")
+            .and_then(Value::as_str)
+            .map(|reason| format!("reason={reason}")),
+        "agent:turn_start" | "agent:turn_end" => format_turn_detail(payload, agent),
+        "agent:output" => payload
+            .get("text")
+            .and_then(Value::as_str)
+            .map(|text| format!("text=\"{}\"", preview_text(text, 120))),
+        "pi:message_start" | "pi:message_update" | "pi:message_end" => {
+            format_pi_message_detail(event_type, payload)
+        }
+        "pi:turn_end" => format_pi_turn_end_detail(payload),
+        "pi:agent_end" => payload
+            .get("terminal_message")
+            .and_then(format_pi_message_summary),
+        "error" => payload
+            .get("message")
+            .and_then(Value::as_str)
+            .map(|message| format!("message=\"{}\"", preview_text(message, 160))),
+        _ => None,
+    };
+
+    match detail {
+        Some(detail) if !detail.is_empty() => format!("{event_type} {detail}"),
+        _ => event_type.to_string(),
+    }
+}
+
+fn format_turn_detail(payload: &Value, agent: Option<&str>) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(agent) = agent {
+        parts.push(format!("agent={agent}"));
+    }
+    if let Some(status) = payload.get("status").and_then(Value::as_str) {
+        parts.push(format!("status={status}"));
+    }
+    if let Some(message_id) = payload.get("message_id").and_then(Value::as_str) {
+        parts.push(format!("message={}", short_id(message_id)));
+    }
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
+fn format_pi_message_detail(event_type: &str, payload: &Value) -> Option<String> {
+    let message = payload.get("partial").or_else(|| payload.get("message"))?;
+    let mut parts = Vec::new();
+
+    if let Some(update_type) = payload.get("update_type").and_then(Value::as_str) {
+        parts.push(update_type.to_string());
+    }
+    if let Some(summary) = format_pi_message_summary(message) {
+        parts.push(summary);
+    }
+
+    if event_type == "pi:message_end" {
+        if let Some(usage) = message.get("usage").and_then(format_usage_summary) {
+            parts.push(usage);
         }
     }
+
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
+fn format_pi_turn_end_detail(payload: &Value) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(message) = payload.get("message") {
+        if let Some(summary) = format_pi_message_summary(message) {
+            parts.push(summary);
+        }
+        if let Some(usage) = message.get("usage").and_then(format_usage_summary) {
+            parts.push(usage);
+        }
+    }
+    if let Some(tool_results) = payload.get("tool_result_count").and_then(Value::as_u64) {
+        let tool_errors = payload
+            .get("tool_error_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        parts.push(format!("tools={tool_results}/{tool_errors}"));
+    }
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
+fn format_pi_message_summary(message: &Value) -> Option<String> {
+    let role = message.get("role").and_then(Value::as_str);
+    let provider = message.get("provider").and_then(Value::as_str);
+    let model = message.get("model").and_then(Value::as_str);
+    let stop = message.get("stop_reason").and_then(Value::as_str);
+    let text = message.get("text").and_then(Value::as_str);
+    let error = message.get("error_message").and_then(Value::as_str);
+
+    let mut parts = Vec::new();
+    if let Some(role) = role {
+        parts.push(format!("role={role}"));
+    }
+    match (provider, model) {
+        (Some(provider), Some(model)) => parts.push(format!("model={provider}/{model}")),
+        (Some(provider), None) => parts.push(format!("provider={provider}")),
+        (None, Some(model)) => parts.push(format!("model={model}")),
+        (None, None) => {}
+    }
+    if let Some(stop) = stop {
+        parts.push(format!("stop={stop}"));
+    }
+    if let Some(text) = text {
+        parts.push(format!("text=\"{}\"", preview_text(text, 120)));
+    }
+    if let Some(error) = error {
+        parts.push(format!("error=\"{}\"", preview_text(error, 160)));
+    }
+
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
+fn format_usage_summary(usage: &Value) -> Option<String> {
+    let total = usage.get("totalTokens").and_then(Value::as_u64)?;
+    let input = usage.get("input").and_then(Value::as_u64).unwrap_or(0);
+    let output = usage.get("output").and_then(Value::as_u64).unwrap_or(0);
+    let mut summary = format!("tokens={total}({input}+{output})");
+    if let Some(cost) = usage.pointer("/cost/total").and_then(Value::as_f64) {
+        if cost > 0.0 {
+            summary.push_str(&format!(" cost=${cost:.6}"));
+        }
+    }
+    Some(summary)
+}
+
+fn short_id(id: &str) -> String {
+    id.chars().take(8).collect()
+}
+
+fn preview_text(text: &str, max_chars: usize) -> String {
+    let compact = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.chars().count() <= max_chars {
+        return compact;
+    }
+    let mut preview = compact
+        .chars()
+        .take(max_chars.saturating_sub(1))
+        .collect::<String>();
+    preview.push('…');
+    preview
 }
 
 fn room_failed(history: &Value) -> bool {
