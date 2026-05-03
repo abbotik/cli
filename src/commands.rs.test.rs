@@ -1084,6 +1084,19 @@ fn parses_llm_factory_commands() {
         other => panic!("expected llm command, got {other:?}"),
     }
 
+    let review = Cli::try_parse_from(["abbot", "llm", "factory", "review", "run_123"])
+        .expect("llm factory review should parse");
+    match review.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Factory(factory) => match factory.command {
+                LlmFactorySubcommand::Review(arg) => assert_eq!(arg.id, "run_123"),
+                other => panic!("expected llm factory review command, got {other:?}"),
+            },
+            other => panic!("expected llm factory command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
     let gate = Cli::try_parse_from(["abbot", "llm", "factory", "create-gate", "run_123"])
         .expect("llm factory create-gate should parse");
     match gate.command {

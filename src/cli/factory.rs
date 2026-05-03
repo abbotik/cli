@@ -46,6 +46,8 @@ pub struct FactorySubmitCommand {
 
 #[derive(Args, Debug)]
 pub struct FactoryWatchCommand {
+    /// Factory run id
+    #[arg(value_name = "RUN")]
     pub id: String,
 
     /// Poll interval in seconds

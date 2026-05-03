@@ -56,17 +56,29 @@ pub struct RoomIdArg {
 
 #[derive(Args, Debug, Clone)]
 pub struct FactoryRunIdArg {
+    /// Factory run id
+    #[arg(value_name = "RUN")]
     pub id: String,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct FactoryRunStageArg {
+    /// Factory run id
+    #[arg(value_name = "RUN")]
     pub id: String,
+
+    /// Factory stage id
+    #[arg(value_name = "STAGE")]
     pub stage_id: String,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct FactoryRunIssueArg {
+    /// Factory run id
+    #[arg(value_name = "RUN")]
     pub id: String,
+
+    /// Factory issue id
+    #[arg(value_name = "ISSUE")]
     pub issue_id: String,
 }

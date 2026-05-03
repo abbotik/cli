@@ -10,10 +10,10 @@ Common uses:
 
 - `abbot llm factory list`
 - `abbot llm factory create < body.json`
-- `abbot llm factory status run_123`
-- `abbot llm factory dispatch-issue run_123 issue_456 < body.json`
-- `abbot llm factory create-artifact run_123 < body.json`
-- `abbot llm factory create-gate run_123 < body.json`
-- `abbot llm factory verify run_123 < body.json`
+- `abbot llm factory status <run-id>`
+- `abbot llm factory dispatch-issue <run-id> <issue-id> < body.json`
+- `abbot llm factory create-artifact <run-id> < body.json`
+- `abbot llm factory create-gate <run-id> < body.json`
+- `abbot llm factory verify <run-id> < body.json`
 
 For the full HTTP contract, read `abbot docs path /docs/llm/factory`.
