@@ -10,9 +10,13 @@ Use this branch for operator workflows:
 - `abbot factory submit --prompt-file ./plan.md --workflow software.delivery --subject repo:abbotik/api`
 - `abbot factory run --prompt-file ./plan.md --timeout 1800`
 - `abbot factory submit --prompt-file -`
+- `abbot factory list`
 - `abbot factory status <run_id>`
+- `abbot factory cancel <run_id> --reason "operator requested"`
+- `abbot factory stop <run_id>`
 - `abbot factory watch <run_id>`
 - `abbot factory watch <run_id> --timeout 1800 --until completed`
+- `abbot factory watch <run_id> --until cancelled`
 - `abbot factory review <run_id>`
 
 `abbot factory watch` attaches to a run and may block for minutes or hours.
@@ -25,5 +29,7 @@ waits until completion, failure, timeout, or attention.
 
 `abbot factory create` remains accepted as a compatibility alias for
 `abbot factory submit`.
+
+`abbot factory stop` remains accepted as an alias for `abbot factory cancel`.
 
 `abbot llm factory` remains available for low-level route-shaped debugging.

@@ -1048,6 +1048,30 @@ fn parses_llm_factory_commands() {
         other => panic!("expected llm command, got {other:?}"),
     }
 
+    let cancel = Cli::try_parse_from([
+        "abbot",
+        "llm",
+        "factory",
+        "cancel",
+        "run_123",
+        "--reason",
+        "operator requested",
+    ])
+    .expect("llm factory cancel should parse");
+    match cancel.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Factory(factory) => match factory.command {
+                LlmFactorySubcommand::Cancel(arg) => {
+                    assert_eq!(arg.id, "run_123");
+                    assert_eq!(arg.reason.as_deref(), Some("operator requested"));
+                }
+                other => panic!("expected llm factory cancel command, got {other:?}"),
+            },
+            other => panic!("expected llm factory command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
     let dispatch = Cli::try_parse_from([
         "abbot",
         "llm",
@@ -1113,6 +1137,16 @@ fn parses_llm_factory_commands() {
 
 #[test]
 fn parses_top_level_factory_commands() {
+    let list = Cli::try_parse_from(["abbot", "factory", "list"])
+        .expect("factory list should parse");
+    match list.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::List => {}
+            other => panic!("expected factory list command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
     let submit = Cli::try_parse_from([
         "abbot",
         "factory",
@@ -1223,6 +1257,36 @@ fn parses_top_level_factory_commands() {
         other => panic!("expected factory command, got {other:?}"),
     }
 
+    let cancel = Cli::try_parse_from([
+        "abbot",
+        "factory",
+        "cancel",
+        "run_123",
+        "--reason",
+        "operator requested",
+    ])
+    .expect("factory cancel should parse");
+    match cancel.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Cancel(arg) => {
+                assert_eq!(arg.id, "run_123");
+                assert_eq!(arg.reason.as_deref(), Some("operator requested"));
+            }
+            other => panic!("expected factory cancel command, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
+    let stop_alias = Cli::try_parse_from(["abbot", "factory", "stop", "run_123"])
+        .expect("factory stop alias should parse");
+    match stop_alias.command {
+        Command::Factory(command) => match command.command {
+            FactorySubcommand::Cancel(arg) => assert_eq!(arg.id, "run_123"),
+            other => panic!("expected factory cancel command from stop alias, got {other:?}"),
+        },
+        other => panic!("expected factory command, got {other:?}"),
+    }
+
     let watch = Cli::try_parse_from([
         "abbot",
         "factory",
@@ -1233,7 +1297,7 @@ fn parses_top_level_factory_commands() {
         "--timeout",
         "30",
         "--until",
-        "completed",
+        "cancelled",
     ])
     .expect("factory watch should parse");
     match watch.command {
@@ -1242,7 +1306,7 @@ fn parses_top_level_factory_commands() {
                 assert_eq!(arg.id, "run_123");
                 assert_eq!(arg.wait.interval, 5);
                 assert_eq!(arg.wait.timeout, Some(30));
-                assert_eq!(arg.wait.until, Some(FactoryWatchUntil::Completed));
+                assert_eq!(arg.wait.until, Some(FactoryWatchUntil::Cancelled));
             }
             other => panic!("expected factory watch command, got {other:?}"),
         },

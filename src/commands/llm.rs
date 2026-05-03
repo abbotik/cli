@@ -835,6 +835,20 @@ async fn llm_factory(command: LlmFactoryCommand, client: &ApiClient) -> anyhow::
                 .post_json::<_, Value>(&format!("/llm/factory/runs/{}/start", arg.id), &json!({}))
                 .await?,
         )?,
+        LlmFactorySubcommand::Cancel(arg) => {
+            let mut body = json!({});
+            if let Some(reason) = arg.reason {
+                body["reason"] = Value::String(reason);
+            }
+            print_json(
+                &client
+                    .post_json::<_, Value>(
+                        &format!("/llm/factory/runs/{}/cancel", arg.id),
+                        &body,
+                    )
+                    .await?,
+            )?
+        }
         LlmFactorySubcommand::Status(arg) => print_json(
             &client
                 .get_json::<Value>(&format!("/llm/factory/runs/{}/status", arg.id))

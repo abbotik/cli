@@ -2,6 +2,7 @@ use super::*;
 
 pub(super) async fn run(command: FactoryCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
+        FactorySubcommand::List => print_json(&client.get_json::<Value>("/llm/factory/runs").await?)?,
         FactorySubcommand::Submit(args) => submit_run(args, client).await?,
         FactorySubcommand::Run(args) => run_factory(args, client).await?,
         FactorySubcommand::Start(arg) => print_json(
@@ -14,6 +15,20 @@ pub(super) async fn run(command: FactoryCommand, client: &ApiClient) -> anyhow::
                 .get_json::<Value>(&format!("/llm/factory/runs/{}/status", arg.id))
                 .await?,
         )?,
+        FactorySubcommand::Cancel(arg) => {
+            let mut body = json!({});
+            if let Some(reason) = arg.reason {
+                body["reason"] = Value::String(reason);
+            }
+            print_json(
+                &client
+                    .post_json::<_, Value>(
+                        &format!("/llm/factory/runs/{}/cancel", arg.id),
+                        &body,
+                    )
+                    .await?,
+            )?
+        }
         FactorySubcommand::Watch(arg) => watch_run(arg, client).await?,
         FactorySubcommand::Review(arg) => print_json(
             &client
@@ -257,18 +272,20 @@ fn watch_stop(status: &Value, until: Option<FactoryWatchUntil>) -> WatchStop {
     let run_status = string_field(status, "status").unwrap_or("");
     let completed = run_status == "completed";
     let failed = run_status == "failed";
+    let cancelled = run_status == "cancelled";
     let blocked = has_attention_blockers(status);
     let attention = blocked || run_status == "gated" || has_attention_gate(status);
 
     let requested = match until.unwrap_or(FactoryWatchUntil::Attention) {
         FactoryWatchUntil::Completed => completed,
         FactoryWatchUntil::Failed => failed,
+        FactoryWatchUntil::Cancelled => cancelled,
         FactoryWatchUntil::Blocked => blocked,
-        FactoryWatchUntil::Attention => completed || failed || attention,
+        FactoryWatchUntil::Attention => completed || failed || cancelled || attention,
     };
 
     WatchStop {
-        stop: requested || failed,
+        stop: requested || failed || cancelled,
         failed,
     }
 }

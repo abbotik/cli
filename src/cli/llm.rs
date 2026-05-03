@@ -153,6 +153,9 @@ pub enum LlmFactorySubcommand {
     Get(FactoryRunIdArg),
     /// Start or wake the factory supervisor for one run
     Start(FactoryRunIdArg),
+    /// Cancel one live factory run
+    #[command(visible_alias = "stop")]
+    Cancel(FactoryCancelCommand),
     /// Read aggregate run status
     Status(FactoryRunIdArg),
     /// List checkpoint records for one run

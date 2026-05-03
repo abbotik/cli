@@ -8,6 +8,8 @@ pub struct FactoryCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum FactorySubcommand {
+    /// List visible factory runs
+    List,
     /// Submit prompt text to Factory and wake the run
     #[command(visible_alias = "create")]
     Submit(FactorySubmitCommand),
@@ -17,10 +19,24 @@ pub enum FactorySubcommand {
     Start(FactoryRunIdArg),
     /// Read aggregate run status
     Status(FactoryRunIdArg),
+    /// Cancel a factory run
+    #[command(visible_alias = "stop")]
+    Cancel(FactoryCancelCommand),
     /// Attach to a run until completion, failure, timeout, or attention
     Watch(FactoryWatchCommand),
     /// Read the latest review bundle
     Review(FactoryRunIdArg),
+}
+
+#[derive(Args, Debug)]
+pub struct FactoryCancelCommand {
+    /// Factory run id
+    #[arg(value_name = "RUN")]
+    pub id: String,
+
+    /// Cancellation reason
+    #[arg(long)]
+    pub reason: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -78,6 +94,7 @@ pub struct FactoryWaitOptions {
 pub enum FactoryWatchUntil {
     Completed,
     Failed,
+    Cancelled,
     Blocked,
     Attention,
 }
