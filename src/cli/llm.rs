@@ -105,9 +105,13 @@ pub struct LlmRoomRunCommand {
     #[arg(long)]
     pub id: Option<String>,
 
-    /// Print lightweight progress while waiting
+    /// Stream assistant text to stdout as it arrives
     #[arg(long)]
     pub stream: bool,
+
+    /// Print room event diagnostics to stderr while waiting
+    #[arg(long)]
+    pub debug: bool,
 
     /// Maximum time to wait for an agent output
     #[arg(long = "timeout-seconds", default_value_t = 120)]

@@ -1,4 +1,5 @@
 use super::*;
+use std::io::Write as _;
 
 pub(super) async fn run(command: LlmCommand, client: &ApiClient) -> anyhow::Result<()> {
     match command.command {
@@ -167,7 +168,7 @@ async fn ensure_room_name_available(client: &ApiClient, name: &str) -> anyhow::R
 
 async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow::Result<()> {
     let room_id = resolve_room_id(client, args.name.as_deref(), args.id.as_deref()).await?;
-    let mut stream_state = if args.stream {
+    let mut stream_state = if args.stream || args.debug {
         RoomStreamState::from_history(
             &client
                 .get_json::<Value>(&format!("/llm/room/{room_id}/history"))
@@ -199,10 +200,15 @@ async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow:
         args.timeout_seconds,
         args.poll_seconds,
         args.stream,
+        args.debug,
         &mut stream_state,
     )
     .await?;
-    println!("{answer}");
+    if args.stream {
+        stream_state.finish_stdout(&answer)?;
+    } else {
+        println!("{answer}");
+    }
     Ok(())
 }
 
@@ -248,6 +254,7 @@ async fn wait_for_room_output(
     timeout_seconds: u64,
     poll_seconds: u64,
     stream: bool,
+    debug: bool,
     stream_state: &mut RoomStreamState,
 ) -> anyhow::Result<String> {
     let timeout = std::time::Duration::from_secs(timeout_seconds);
@@ -259,8 +266,8 @@ async fn wait_for_room_output(
             .get_json::<Value>(&format!("/llm/room/{room_id}/history"))
             .await?;
 
-        if stream {
-            print_new_room_events(&history, stream_state);
+        if stream || debug {
+            print_new_room_events(&history, stream_state, stream, debug)?;
         }
 
         if room_failed(&history) {
@@ -289,7 +296,9 @@ async fn wait_for_room_output(
 struct RoomStreamState {
     seen_event_ids: Vec<String>,
     assistant_text: String,
+    streamed_text: String,
     reported_text_chars: usize,
+    wrote_stdout: bool,
 }
 
 impl RoomStreamState {
@@ -308,14 +317,61 @@ impl RoomStreamState {
         Self {
             seen_event_ids,
             assistant_text: String::new(),
+            streamed_text: String::new(),
             reported_text_chars: 0,
+            wrote_stdout: false,
         }
+    }
+
+    fn reset_assistant_text(&mut self) {
+        self.assistant_text.clear();
+        self.streamed_text.clear();
+        self.reported_text_chars = 0;
+    }
+
+    fn write_stdout_delta(&mut self, text: &str) -> anyhow::Result<()> {
+        let delta = if let Some(delta) = text.strip_prefix(&self.streamed_text) {
+            delta
+        } else {
+            suffix_after_common_prefix(text, &self.streamed_text)
+        };
+
+        if !delta.is_empty() {
+            print!("{delta}");
+            stdio::stdout().flush()?;
+            self.wrote_stdout = true;
+        }
+        self.streamed_text = text.to_string();
+        Ok(())
+    }
+
+    fn finish_stdout(&mut self, answer: &str) -> anyhow::Result<()> {
+        if self.streamed_text.is_empty() {
+            print!("{answer}");
+            self.wrote_stdout = !answer.is_empty();
+        } else if let Some(delta) = answer.strip_prefix(&self.streamed_text) {
+            if !delta.is_empty() {
+                print!("{delta}");
+                self.wrote_stdout = true;
+            }
+        }
+
+        if self.wrote_stdout {
+            println!();
+            stdio::stdout().flush()?;
+        }
+        Ok(())
     }
 }
 
-fn print_new_room_events(history: &Value, stream_state: &mut RoomStreamState) {
+fn print_new_room_events(
+    history: &Value,
+    stream_state: &mut RoomStreamState,
+    stream: bool,
+    debug: bool,
+) -> anyhow::Result<()> {
     let Some(events) = history.pointer("/data/events").and_then(Value::as_array) else {
-        return;
+        return Ok(());
     };
 
     for event in events {
@@ -327,10 +383,48 @@ fn print_new_room_events(history: &Value, stream_state: &mut RoomStreamState) {
         }
         stream_state.seen_event_ids.push(id.to_string());
 
-        if let Some(line) = format_room_event(event, stream_state) {
-            eprintln!("{line}");
+        if stream {
+            print_room_event_text(event, stream_state)?;
+        }
+        if debug {
+            if let Some(line) = format_room_event(event, stream_state) {
+                eprintln!("{line}");
+            }
         }
     }
+    Ok(())
+}
+
+fn print_room_event_text(event: &Value, stream_state: &mut RoomStreamState) -> anyhow::Result<()> {
+    let Some(event_type) = event.get("event_type").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let payload = event.get("payload").unwrap_or(&Value::Null);
+
+    match event_type {
+        "pi:message_start" => {
+            if payload
+                .get("message")
+                .and_then(|message| message.get("role"))
+                .and_then(Value::as_str)
+                == Some("assistant")
+            {
+                stream_state.reset_assistant_text();
+            }
+        }
+        "pi:message_update" => {
+            if let Some(text) = assistant_text_from_payload(payload, "partial") {
+                stream_state.write_stdout_delta(text)?;
+            }
+        }
+        "pi:message_end" => {
+            if let Some(text) = assistant_text_from_payload(payload, "message") {
+                stream_state.write_stdout_delta(text)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn format_room_event(event: &Value, stream_state: &mut RoomStreamState) -> Option<String> {
@@ -482,6 +576,25 @@ fn assistant_text_progress(
         "text chars={chars} tail=\"{}\"",
         preview_tail_text(text, 120)
     ))
+}
+
+fn assistant_text_from_payload<'a>(payload: &'a Value, message_key: &str) -> Option<&'a str> {
+    let message = payload.get(message_key)?;
+    if message.get("role").and_then(Value::as_str) != Some("assistant") {
+        return None;
+    }
+    message.get("text").and_then(Value::as_str)
+}
+
+fn suffix_after_common_prefix<'a>(text: &'a str, previous: &str) -> &'a str {
+    let mut prefix_bytes = 0;
+    for ((index, next_char), previous_char) in text.char_indices().zip(previous.chars()) {
+        if next_char != previous_char {
+            break;
+        }
+        prefix_bytes = index + next_char.len_utf8();
+    }
+    &text[prefix_bytes..]
 }
 
 fn format_pi_message_summary(message: &Value) -> Option<String> {

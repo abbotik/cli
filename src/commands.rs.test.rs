@@ -854,6 +854,7 @@ fn parses_llm_room_commands() {
         "math",
         "Calculate 42 * 19",
         "--stream",
+        "--debug",
     ])
     .expect("llm room run should parse");
 
@@ -864,6 +865,7 @@ fn parses_llm_room_commands() {
                     assert_eq!(args.name.as_deref(), Some("math"));
                     assert_eq!(args.prompt, "Calculate 42 * 19");
                     assert!(args.stream);
+                    assert!(args.debug);
                 }
                 other => panic!("expected llm room run command, got {other:?}"),
             },

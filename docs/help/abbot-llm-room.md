@@ -19,8 +19,9 @@ Common uses:
 in room metadata so later `run --name <name>` calls can reuse the room.
 
 `run` appends one task message to an existing room, waits for the next agent
-output, and prints only that output on stdout. Use `--stream` to print
-lightweight room event progress on stderr while waiting.
+output, and prints only that output on stdout. Use `--stream` to stream the
+assistant text on stdout as it arrives. Add `--debug` to print room event
+diagnostics on stderr while waiting.
 
 For the full HTTP contract and lifecycle notes, read
 `abbot docs path /docs/llm/room`.
