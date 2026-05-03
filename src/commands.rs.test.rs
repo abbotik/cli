@@ -813,6 +813,65 @@ fn parses_user_secrets_commands() {
 
 #[test]
 fn parses_llm_room_commands() {
+    let create = Cli::try_parse_from([
+        "abbot",
+        "llm",
+        "room",
+        "create",
+        "--name",
+        "math",
+        "--model",
+        "openai/gpt-5.4",
+        "--provider",
+        "openrouter",
+        "--purpose",
+        "math scratch",
+    ])
+    .expect("llm room create flags should parse");
+
+    match create.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Create(args) => {
+                    assert_eq!(args.name.as_deref(), Some("math"));
+                    assert_eq!(args.model.as_deref(), Some("openai/gpt-5.4"));
+                    assert_eq!(args.provider.as_deref(), Some("openrouter"));
+                    assert_eq!(args.purpose.as_deref(), Some("math scratch"));
+                }
+                other => panic!("expected llm room create command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
+    let run = Cli::try_parse_from([
+        "abbot",
+        "llm",
+        "room",
+        "run",
+        "--name",
+        "math",
+        "Calculate 42 * 19",
+        "--stream",
+    ])
+    .expect("llm room run should parse");
+
+    match run.command {
+        Command::Llm(command) => match command.command {
+            LlmSubcommand::Room(room) => match room.command {
+                LlmRoomSubcommand::Run(args) => {
+                    assert_eq!(args.name.as_deref(), Some("math"));
+                    assert_eq!(args.prompt, "Calculate 42 * 19");
+                    assert!(args.stream);
+                }
+                other => panic!("expected llm room run command, got {other:?}"),
+            },
+            other => panic!("expected llm room command, got {other:?}"),
+        },
+        other => panic!("expected llm command, got {other:?}"),
+    }
+
     let message = Cli::try_parse_from(["abbot", "llm", "room", "message", "room_123"])
         .expect("llm room message should parse");
 

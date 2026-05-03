@@ -40,7 +40,7 @@ pub enum LlmRoomSubcommand {
     /// List visible rooms
     List,
     /// Rent a new room
-    Create,
+    Create(LlmRoomCreateCommand),
     /// Fetch one room by ID
     Get(RoomIdArg),
     /// Update mutable room configuration
@@ -49,6 +49,8 @@ pub enum LlmRoomSubcommand {
     Message(RoomIdArg),
     /// Wake a room explicitly
     Wake(RoomIdArg),
+    /// Send one prompt to a room and wait for the result
+    Run(LlmRoomRunCommand),
     /// Replay durable room events and optionally follow live SSE
     Events(LlmRoomEventsCommand),
     /// Read durable room history
@@ -57,6 +59,63 @@ pub enum LlmRoomSubcommand {
     Interrupt(RoomIdArg),
     /// Release a room explicitly
     Release(RoomIdArg),
+}
+
+#[derive(Args, Debug, Default)]
+pub struct LlmRoomCreateCommand {
+    /// Stable CLI name for the room
+    #[arg(long)]
+    pub name: Option<String>,
+
+    /// Provider to rent, such as openrouter
+    #[arg(long)]
+    pub provider: Option<String>,
+
+    /// Model to rent, such as openai/gpt-5.4
+    #[arg(long)]
+    pub model: Option<String>,
+
+    /// Human-readable room purpose
+    #[arg(long)]
+    pub purpose: Option<String>,
+
+    /// Agent id stored in the room roster
+    #[arg(long = "agent-id")]
+    pub agent_id: Option<String>,
+
+    /// Agent role stored in the room roster
+    #[arg(long, default_value = "assistant")]
+    pub role: String,
+
+    /// Agent adapter
+    #[arg(long, default_value = "pi")]
+    pub adapter: String,
+}
+
+#[derive(Args, Debug)]
+pub struct LlmRoomRunCommand {
+    /// Prompt to send to the room
+    pub prompt: String,
+
+    /// Stable CLI room name
+    #[arg(long)]
+    pub name: Option<String>,
+
+    /// Room id, when not using --name
+    #[arg(long)]
+    pub id: Option<String>,
+
+    /// Print lightweight progress while waiting
+    #[arg(long)]
+    pub stream: bool,
+
+    /// Maximum time to wait for an agent output
+    #[arg(long = "timeout-seconds", default_value_t = 120)]
+    pub timeout_seconds: u64,
+
+    /// Poll interval while waiting
+    #[arg(long = "poll-seconds", default_value_t = 1)]
+    pub poll_seconds: u64,
 }
 
 #[derive(Args, Debug)]
