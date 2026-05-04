@@ -19,8 +19,8 @@ normal CLI surface.
 
 ## Route Inventory
 
-The live API router in `../api/apps/api/src/servers/http.ts` registers these
-`/api/<name>` families:
+The live API router in `../api/src/lib.rs` registers these `/api/<name>`
+families through the route modules under `../api/src/api/`:
 
 - `/api/acls`
 - `/api/aggregate`
