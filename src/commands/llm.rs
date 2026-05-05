@@ -206,11 +206,13 @@ async fn run_room_prompt(args: LlmRoomRunCommand, client: &ApiClient) -> anyhow:
         client,
         &room_id,
         &message_id,
-        args.timeout_seconds,
-        args.poll_seconds,
-        args.stream,
-        args.debug,
-        &mut stream_state,
+        RoomOutputWatchOptions {
+            timeout_seconds: args.timeout_seconds,
+            poll_seconds: args.poll_seconds,
+            stream: args.stream,
+            debug: args.debug,
+            stream_state: &mut stream_state,
+        },
     )
     .await?;
     if args.stream {
@@ -306,18 +308,22 @@ async fn find_room_by_name_for_release(
     Ok(failed_match)
 }
 
-async fn wait_for_room_output(
-    client: &ApiClient,
-    room_id: &str,
-    trigger_message_id: &str,
+struct RoomOutputWatchOptions<'a> {
     timeout_seconds: u64,
     poll_seconds: u64,
     stream: bool,
     debug: bool,
-    stream_state: &mut RoomStreamState,
+    stream_state: &'a mut RoomStreamState,
+}
+
+async fn wait_for_room_output(
+    client: &ApiClient,
+    room_id: &str,
+    trigger_message_id: &str,
+    options: RoomOutputWatchOptions<'_>,
 ) -> anyhow::Result<String> {
-    let timeout = std::time::Duration::from_secs(timeout_seconds);
-    let poll = std::time::Duration::from_secs(poll_seconds.max(1));
+    let timeout = std::time::Duration::from_secs(options.timeout_seconds);
+    let poll = std::time::Duration::from_secs(options.poll_seconds.max(1));
     let started = std::time::Instant::now();
 
     loop {
@@ -325,8 +331,13 @@ async fn wait_for_room_output(
             .get_json::<Value>(&format!("/llm/room/{room_id}/history"))
             .await?;
 
-        if stream || debug {
-            print_new_room_events(&history, stream_state, stream, debug)?;
+        if options.stream || options.debug {
+            print_new_room_events(
+                &history,
+                options.stream_state,
+                options.stream,
+                options.debug,
+            )?;
         }
 
         if room_failed(&history) {
@@ -344,7 +355,10 @@ async fn wait_for_room_output(
         }
 
         if started.elapsed() >= timeout {
-            anyhow::bail!("timed out waiting for room `{room_id}` after {timeout_seconds}s");
+            anyhow::bail!(
+                "timed out waiting for room `{room_id}` after {}s",
+                options.timeout_seconds
+            );
         }
 
         tokio::time::sleep(poll).await;
@@ -461,15 +475,14 @@ fn print_room_event_text(event: &Value, stream_state: &mut RoomStreamState) -> a
     let payload = event.get("payload").unwrap_or(&Value::Null);
 
     match event_type {
-        "pi:message_start" => {
+        "pi:message_start"
             if payload
                 .get("message")
                 .and_then(|message| message.get("role"))
                 .and_then(Value::as_str)
-                == Some("assistant")
-            {
-                stream_state.reset_assistant_text();
-            }
+                == Some("assistant") =>
+        {
+            stream_state.reset_assistant_text();
         }
         "pi:message_update" => {
             if let Some(text) = assistant_text_from_payload(payload, "partial") {
@@ -794,7 +807,7 @@ fn find_output_after_trigger(history: &Value, trigger_message_id: &str) -> Optio
             None => true,
         })
         .filter_map(extract_message_text)
-        .last()
+        .next_back()
 }
 
 fn extract_message_text(message: &Value) -> Option<String> {
@@ -841,10 +854,7 @@ async fn llm_factory(command: LlmFactoryCommand, client: &ApiClient) -> anyhow::
             }
             print_json(
                 &client
-                    .post_json::<_, Value>(
-                        &format!("/llm/factory/runs/{}/cancel", arg.id),
-                        &body,
-                    )
+                    .post_json::<_, Value>(&format!("/llm/factory/runs/{}/cancel", arg.id), &body)
                     .await?,
             )?
         }

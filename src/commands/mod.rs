@@ -89,10 +89,11 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
     let token_overridden =
         cli.globals.token.is_some() || std::env::var_os("ABBOTIK_API_TOKEN").is_some();
     let mut client = ApiClient::new(config.clone())?;
-    if !token_overridden && should_auto_refresh_token(&cli.command) {
-        if auth::refresh_saved_token_if_needed(&client, &mut config, save_path.as_deref()).await? {
-            client = ApiClient::new(config.clone())?;
-        }
+    if !token_overridden
+        && should_auto_refresh_token(&cli.command)
+        && auth::refresh_saved_token_if_needed(&client, &mut config, save_path.as_deref()).await?
+    {
+        client = ApiClient::new(config.clone())?;
     }
 
     match cli.command {
@@ -139,7 +140,11 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
 fn should_auto_refresh_token(command: &Command) -> bool {
     !matches!(
         command,
-        Command::Auth(_) | Command::Config(_) | Command::Doctor(_) | Command::Guide(_) | Command::Update(_)
+        Command::Auth(_)
+            | Command::Config(_)
+            | Command::Doctor(_)
+            | Command::Guide(_)
+            | Command::Update(_)
     )
 }
 
