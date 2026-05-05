@@ -17,6 +17,55 @@ Core human-first commands:
 - `abbot api <name>` for route-shaped `/api/<name>` families
 - `abbot mcp list` and `abbot mcp call` for MCP tool workflows
 
+## New tenant bootstrap
+
+For a brand-new tenant, the CLI supports the machine-auth bootstrap flow
+directly. The normal sequence is:
+
+1. Create or choose a tenant slug that matches the server rules:
+   - lowercase letters, numbers, and underscores only
+   - must start with a lowercase letter
+2. Generate a private/public keypair for the machine user.
+3. Run `abbot auth machine connect` against the target host:
+
+```bash
+abbot --host http://127.0.0.1:9100 auth machine connect \
+  --tenant my_new_tenant \
+  --username machine_root \
+  --key /path/to/machine.key
+```
+
+What this does:
+
+- provisions the machine user when the tenant is new
+- requests the signing challenge
+- signs the challenge with the private key
+- verifies the signature
+- saves the resulting bearer token and machine-auth metadata in the local host
+  config
+
+For an existing machine user, the same command can reconnect using saved
+metadata or an invite code:
+
+```bash
+abbot --host http://127.0.0.1:9100 auth machine connect \
+  --tenant existing_tenant \
+  --username machine_root \
+  --key /path/to/machine.key
+
+abbot --host http://127.0.0.1:9100 auth machine connect \
+  --tenant existing_tenant \
+  --username builder_2 \
+  --invite-code <code> \
+  --key /path/to/builder_2.key
+```
+
+Useful follow-up checks:
+
+- `abbot auth list`
+- `abbot api user me`
+- `abbot auth refresh` for later token refreshes
+
 ## Release and install
 
 The release process is tag-based and publishes GitHub Release assets for:
@@ -80,7 +129,7 @@ Registered `/api/<name>` families:
 acls aggregate bulk cron data describe find keys stat tracked trashed user
 ```
 
-For a new user, the intended first steps are:
+For a new human user, the intended first steps are:
 
 ```bash
 abbot auth login --tenant acme --username alice --password secret

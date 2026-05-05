@@ -9,7 +9,6 @@ pub(super) async fn run(command: LlmCommand, client: &ApiClient) -> anyhow::Resu
         LlmSubcommand::Models(_) => {
             print_json(&client.get_json::<Value>("/llm/providers/models").await?)?
         }
-        LlmSubcommand::Skills(_) => print_json(&client.get_json::<Value>("/llm/skills").await?)?,
         LlmSubcommand::Room(command) => llm_room(command, client).await?,
         LlmSubcommand::Factory(command) => llm_factory(command, client).await?,
     }

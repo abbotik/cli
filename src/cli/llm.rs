@@ -12,8 +12,6 @@ pub enum LlmSubcommand {
     Providers(LlmProvidersCommand),
     /// List enabled rentable model descriptors
     Models(LlmModelsCommand),
-    /// List known room skills
-    Skills(LlmSkillsCommand),
     /// Manage bounded live LLM rooms
     Room(LlmRoomCommand),
     /// Manage durable factory runs, stages, issues, and review state
@@ -25,9 +23,6 @@ pub struct LlmProvidersCommand {}
 
 #[derive(Args, Debug, Default)]
 pub struct LlmModelsCommand {}
-
-#[derive(Args, Debug, Default)]
-pub struct LlmSkillsCommand {}
 
 #[derive(Args, Debug)]
 pub struct LlmRoomCommand {
@@ -95,7 +90,7 @@ pub struct LlmRoomCreateCommand {
     pub role: String,
 
     /// Agent adapter
-    #[arg(long, default_value = "pi")]
+    #[arg(long, default_value = "codex")]
     pub adapter: String,
 }
 
