@@ -309,22 +309,28 @@ fn parses_invited_human_and_user_invite_commands() {
 
 #[test]
 fn parses_data_list_with_limit() {
-    let cli = Cli::try_parse_from(["abbot", "api", "data", "--limit", "5", "list", "rooms"])
+    let cli = Cli::try_parse_from(["abbot", "api", "data", "list", "--limit", "5", "rooms"])
         .expect("data list with limit should parse");
 
     match cli.command {
         Command::Api(api) => match api.command {
-            ApiSubcommand::Data(data) => {
-                assert_eq!(data.options.limit, Some(5));
-                match data.command {
-                    DataSubcommand::List(arg) => assert_eq!(arg.model, "rooms"),
-                    other => panic!("expected data list command, got {other:?}"),
+            ApiSubcommand::Data(data) => match data.command {
+                DataSubcommand::List(arg) => {
+                    assert_eq!(arg.options.limit, Some(5));
+                    assert_eq!(arg.model, "rooms");
                 }
-            }
+                other => panic!("expected data list command, got {other:?}"),
+            },
             other => panic!("expected api data command, got {other:?}"),
         },
         other => panic!("expected data command, got {other:?}"),
     }
+}
+
+#[test]
+fn rejects_data_root_limit() {
+    let cli = Cli::try_parse_from(["abbot", "api", "data", "--limit", "5", "list", "rooms"]);
+    assert!(cli.is_err(), "data root should not accept list-only limit");
 }
 
 #[test]

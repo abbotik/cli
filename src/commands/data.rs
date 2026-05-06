@@ -6,7 +6,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .get_json_with_query::<_, Value>(
                     &format!("/api/data/{}", arg.model),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                 )
                 .await?,
         )?,
@@ -14,7 +14,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .post_json_with_query::<_, _, Value>(
                     &format!("/api/data/{}", arg.model),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                     &read_json_body_or_default(json!([]))?,
                 )
                 .await?,
@@ -23,7 +23,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .put_json_with_query::<_, _, Value>(
                     &format!("/api/data/{}", arg.model),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                     &read_json_body_or_default(json!([]))?,
                 )
                 .await?,
@@ -32,7 +32,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .patch_json_with_query::<_, _, Value>(
                     &format!("/api/data/{}", arg.model),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                     &read_json_body_or_default(json!({}))?,
                 )
                 .await?,
@@ -41,7 +41,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .delete_json_with_query::<_, Value>(
                     &format!("/api/data/{}", arg.model),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                 )
                 .await?,
         )?,
@@ -49,7 +49,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .get_json_with_query::<_, Value>(
                     &format!("/api/data/{}/{}", arg.model, arg.id),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                 )
                 .await?,
         )?,
@@ -57,7 +57,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .put_json_with_query::<_, _, Value>(
                     &format!("/api/data/{}/{}", arg.model, arg.id),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                     &read_json_body_or_default(json!({}))?,
                 )
                 .await?,
@@ -66,7 +66,7 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .patch_json_with_query::<_, _, Value>(
                     &format!("/api/data/{}/{}", arg.model, arg.id),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                     &read_json_body_or_default(json!({}))?,
                 )
                 .await?,
@@ -75,12 +75,13 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
             &client
                 .delete_json_with_query::<_, Value>(
                     &format!("/api/data/{}/{}", arg.model, arg.id),
-                    &data_helpers::query_pairs(&command.options),
+                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
                 )
                 .await?,
         )?,
         crate::cli::DataSubcommand::Relationship(arg) => {
-            relationship(arg, client, &command.options).await?
+            let options = DataOptions::from(&arg.options);
+            relationship(arg, client, &options).await?
         }
     }
     Ok(())
