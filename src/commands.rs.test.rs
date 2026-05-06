@@ -334,6 +334,15 @@ fn rejects_data_root_limit() {
 }
 
 #[test]
+fn rejects_removed_single_record_patch_command() {
+    let cli = Cli::try_parse_from(["abbot", "api", "data", "patch-record", "rooms", "room-1"]);
+    assert!(
+        cli.is_err(),
+        "single-record patch is not supported by the API route"
+    );
+}
+
+#[test]
 fn parses_keys_commands() {
     let create = Cli::try_parse_from([
         "abbot",

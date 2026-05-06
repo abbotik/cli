@@ -62,15 +62,6 @@ pub(super) async fn run(command: DataCommand, client: &ApiClient) -> anyhow::Res
                 )
                 .await?,
         )?,
-        crate::cli::DataSubcommand::PatchRecord(arg) => print_json(
-            &client
-                .patch_json_with_query::<_, _, Value>(
-                    &format!("/api/data/{}/{}", arg.model, arg.id),
-                    &data_helpers::query_pairs(&DataOptions::from(&arg.options)),
-                    &read_json_body_or_default(json!({}))?,
-                )
-                .await?,
-        )?,
         crate::cli::DataSubcommand::DeleteRecord(arg) => print_json(
             &client
                 .delete_json_with_query::<_, Value>(

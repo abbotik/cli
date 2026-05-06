@@ -206,9 +206,6 @@ pub enum DataSubcommand {
     Get(DataGetArg),
     /// Update a single record via PUT /api/data/:model/:id
     Put(DataPutArg),
-    /// Patch a single record via PATCH /api/data/:model/:id
-    #[command(name = "patch-record")]
-    PatchRecord(DataPatchRecordArg),
     /// Soft delete a single record via DELETE /api/data/:model/:id
     DeleteRecord(DataDeleteRecordArg),
     /// Work with owned relationship routes under /api/data/:model/:id/:relationship
@@ -260,14 +257,6 @@ pub struct DataGetArg {
 
 #[derive(Args, Debug)]
 pub struct DataPutArg {
-    #[command(flatten)]
-    pub options: DataMutationOptions,
-    pub model: String,
-    pub id: String,
-}
-
-#[derive(Args, Debug)]
-pub struct DataPatchRecordArg {
     #[command(flatten)]
     pub options: DataMutationOptions,
     pub model: String,
