@@ -502,6 +502,25 @@ impl AbbotikConfig {
     }
 }
 
+impl OutputFormat {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OutputFormat::Json => "json",
+        }
+    }
+}
+
+impl std::str::FromStr for OutputFormat {
+    type Err = AbbotikError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.to_ascii_lowercase().as_str() {
+            "json" => Ok(OutputFormat::Json),
+            _ => Err(AbbotikError::UnsupportedOutputFormat(value.to_string())),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -698,24 +717,5 @@ mod tests {
             parsed,
             Err(super::AbbotikError::UnsupportedOutputFormat(value)) if value == "yaml"
         ));
-    }
-}
-
-impl OutputFormat {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            OutputFormat::Json => "json",
-        }
-    }
-}
-
-impl std::str::FromStr for OutputFormat {
-    type Err = AbbotikError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.to_ascii_lowercase().as_str() {
-            "json" => Ok(OutputFormat::Json),
-            _ => Err(AbbotikError::UnsupportedOutputFormat(value.to_string())),
-        }
     }
 }

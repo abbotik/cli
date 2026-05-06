@@ -227,14 +227,16 @@ mod tests {
 
     #[test]
     fn resolve_machine_refresh_context_prefers_claims_and_requires_identity() {
-        let mut config = AbbotikConfig::default();
-        config.machine_auth = Some(MachineAuthConfig {
-            tenant: Some("from-config".to_string()),
-            key_id: Some("key-config".to_string()),
-            key_fingerprint: Some("fp-config".to_string()),
-            public_key_path: None,
-            private_key_path: Some("/tmp/key.pem".to_string()),
-        });
+        let config = AbbotikConfig {
+            machine_auth: Some(MachineAuthConfig {
+                tenant: Some("from-config".to_string()),
+                key_id: Some("key-config".to_string()),
+                key_fingerprint: Some("fp-config".to_string()),
+                public_key_path: None,
+                private_key_path: Some("/tmp/key.pem".to_string()),
+            }),
+            ..Default::default()
+        };
 
         let ctx = resolve_machine_refresh_context(
             &config,
@@ -256,14 +258,16 @@ mod tests {
 
     #[test]
     fn resolve_machine_connect_context_uses_matching_tenant_machine_auth() {
-        let mut config = AbbotikConfig::default();
-        config.machine_auth = Some(MachineAuthConfig {
-            tenant: Some("acme".to_string()),
-            key_id: Some("key-1".to_string()),
-            key_fingerprint: Some("fp-1".to_string()),
-            public_key_path: None,
-            private_key_path: None,
-        });
+        let config = AbbotikConfig {
+            machine_auth: Some(MachineAuthConfig {
+                tenant: Some("acme".to_string()),
+                key_id: Some("key-1".to_string()),
+                key_fingerprint: Some("fp-1".to_string()),
+                public_key_path: None,
+                private_key_path: None,
+            }),
+            ..Default::default()
+        };
 
         let ctx = resolve_machine_connect_context(
             None,
